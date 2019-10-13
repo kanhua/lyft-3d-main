@@ -112,11 +112,17 @@ def extract_boxed_clouds(num_entries, point_threshold=1024, while_list_type_str=
         # transform the masked point clouds to frustum coordinates
         # For the time being, just translate it the center coordinates
 
-        #for k in range(masked_ldp_points.shape[1]):
+        # for k in range(masked_ldp_points.shape[1]):
         #    masked_ldp_points[0:3, k] -= box.center
 
         # Show number of points
         print("number of cloud points: {}".format(masked_ldp_points.shape[1]))
+
+        ##Patch: calibration using KITTI calibration data
+        ncpc = calib_point_cloud(masked_ldp_points[0:3, :].T)
+        masked_ldp_points[0:3, :] = np.transpose(ncpc)
+
+        rescale_lidar_intensity(masked_ldp_points, 0.2)
 
         if masked_ldp_points.shape[1] > point_threshold:
             # Store the results
@@ -126,9 +132,8 @@ def extract_boxed_clouds(num_entries, point_threshold=1024, while_list_type_str=
         if len(point_clouds_list) >= num_entries:
             break
 
-    point_clouds_list=rearrange_point_clouds(point_clouds_list)
-    one_hot_vector_list=rearrange_one_hot_vector(one_hot_vector_list)
-
+    point_clouds_list = rearrange_point_clouds(point_clouds_list)
+    one_hot_vector_list = rearrange_one_hot_vector(one_hot_vector_list)
 
     # save the file
     with open(save_file, 'wb') as fp:
@@ -139,17 +144,40 @@ def extract_boxed_clouds(num_entries, point_threshold=1024, while_list_type_str=
     return point_clouds_list, one_hot_vector_list
 
 
-def rearrange_point_clouds(point_clouds_list,num_points=1024):
+def rescale_lidar_intensity(point_cloud: np.ndarray, value: float):
+    point_cloud[3, :] = value
+    return point_cloud
+
+
+def calib_point_cloud(point_cloud: np.ndarray) -> np.ndarray:
+    """
+       Calibrate point cloud data using KITTI calib file.
+    This is not correct, just for preliminary trying
+    :param point_cloud:
+    :return: Nx3 array
+    """
+
+    from kitti_util import Calibration
+
+    assert point_cloud.shape[1] == 3
+
+    calib_file_path = "/Users/kanhua/Downloads/frustum-pointnets/dataset/KITTI/object/training/calib/000000.txt"
+    calib = Calibration(calib_file_path)
+
+    return calib.project_velo_to_rect(point_cloud)
+
+
+def rearrange_point_clouds(point_clouds_list, num_points=1024):
     num_clouds = len(point_clouds_list)
     output_point_clouds = np.empty((num_clouds, num_points, 4))
 
     for pc_id, pc in enumerate(point_clouds_list):
-        sel_index=np.random.choice(pc.shape[1],num_points)
+        sel_index = np.random.choice(pc.shape[1], num_points)
         assert num_points == sel_index.shape[0]
-        output_point_clouds[pc_id, :, :] = np.transpose(pc[:,sel_index])
+        output_point_clouds[pc_id, :, :] = np.transpose(pc[:, sel_index])
 
     return output_point_clouds
 
-def rearrange_one_hot_vector(one_hot_vector_list):
 
+def rearrange_one_hot_vector(one_hot_vector_list):
     return np.stack(one_hot_vector_list)

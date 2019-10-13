@@ -47,6 +47,6 @@ def plot_kitti_point_cloud():
     input()
 
 #plot_demo_lyft_lidar()
-#plot_cloud_in_box()
+plot_cloud_in_box()
 
-plot_kitti_point_cloud()
+#plot_kitti_point_cloud()
