@@ -112,8 +112,8 @@ def extract_boxed_clouds(num_entries, point_threshold=1024, while_list_type_str=
         # transform the masked point clouds to frustum coordinates
         # For the time being, just translate it the center coordinates
 
-        for k in range(masked_ldp_points.shape[1]):
-            masked_ldp_points[0:3, k] -= box.center
+        #for k in range(masked_ldp_points.shape[1]):
+        #    masked_ldp_points[0:3, k] -= box.center
 
         # Show number of points
         print("number of cloud points: {}".format(masked_ldp_points.shape[1]))

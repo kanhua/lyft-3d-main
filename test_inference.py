@@ -36,6 +36,8 @@ parser.add_argument('--from_rgb_detection', action='store_true', help='test from
 parser.add_argument('--idx_path', default=None,
                     help='filename of txt where each line is a data idx, used for rgb detection -- write <id>.txt for all frames. [default: None]')
 parser.add_argument('--dump_result', action='store_true', help='If true, also dump results to .pickle file')
+parser.add_argument('--run_lyft_eval', action='store_true')
+parser.add_argument('--run_kitti_eval', action='store_true')
 FLAGS = parser.parse_args()
 
 # Set training configurations
@@ -154,10 +156,8 @@ def inference(sess, ops, pc, one_hot_vec, batch_size):
            size_cls, size_res, scores
 
 
-if __name__ == "__main__":
+def run_lyft_eval_inference():
     sess, ops = get_session_and_ops(10, NUM_POINT)
-
-    import pickle
 
     pfile = "/Users/kanhua/Downloads/3d-object-detection-for-autonomous-vehicles/artifacts/val_pc.pickle"
 
@@ -165,7 +165,38 @@ if __name__ == "__main__":
         item = pickle.load(fp)
         print(type(item))
 
+    #run a intensity normalization here
+    #item['pcl'][:, :, 3] = 0.5
+
     batch_output, batch_center_pred, \
     batch_hclass_pred, batch_hres_pred, \
-    batch_sclass_pred, batch_sres_pred, batch_scores =\
+    batch_sclass_pred, batch_sres_pred, batch_scores = \
         inference(sess, ops, pc=item['pcl'], one_hot_vec=item['ohv'], batch_size=10)
+
+    return batch_output
+
+def run_kitti_eval_inference():
+
+    batch_size=2
+    sess, ops = get_session_and_ops(batch_size, NUM_POINT)
+
+    kitti_pc_file = "/Users/kanhua/Downloads/3d-object-detection-for-autonomous-vehicles/artifacts/kitti_val_pc.pickle"
+
+    with open(kitti_pc_file, 'rb') as fp:
+        item = pickle.load(fp)
+
+    kitti_pc = item['pcl']
+
+    batch_output, batch_center_pred, \
+    batch_hclass_pred, batch_hres_pred, \
+    batch_sclass_pred, batch_sres_pred, batch_scores = \
+        inference(sess, ops, pc=item['pcl'], one_hot_vec=item['ohv'], batch_size=batch_size)
+
+    return batch_output
+
+
+if __name__ == "__main__":
+    if FLAGS.run_lyft_eval:
+        batch_output=run_lyft_eval_inference()
+    elif FLAGS.run_kitti_eval:
+        batch_output=run_kitti_eval_inference()

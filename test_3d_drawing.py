@@ -1,3 +1,4 @@
+import pickle
 from prepare_lyft_data import extract_single_box, \
     parse_train_csv,level5data,extract_boxed_clouds
 from lyft_dataset_sdk.utils.data_classes import LidarPointCloud
@@ -17,7 +18,6 @@ def plot_demo_lyft_lidar():
     input()
 
 def plot_cloud_in_box():
-    import pickle
     pfile="/Users/kanhua/Downloads/3d-object-detection-for-autonomous-vehicles/artifacts/val_pc.pickle"
 
     with open(pfile,'rb') as fp:
@@ -32,5 +32,21 @@ def plot_cloud_in_box():
 def plot_demo_random():
     pass
 
+def plot_kitti_point_cloud():
+
+    kitti_pc_file="/Users/kanhua/Downloads/3d-object-detection-for-autonomous-vehicles/artifacts/kitti_val_pc.pickle"
+
+    with open(kitti_pc_file,'rb') as fp:
+        item=pickle.load(fp)
+
+    plot_pcl=item['pcl'][0]
+    print(plot_pcl.shape)
+    print(plot_pcl)
+    draw_lidar_simple(plot_pcl.T)
+
+    input()
+
 #plot_demo_lyft_lidar()
-plot_cloud_in_box()
+#plot_cloud_in_box()
+
+plot_kitti_point_cloud()
