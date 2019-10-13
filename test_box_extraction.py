@@ -4,7 +4,6 @@ from prepare_lyft_data import extract_single_box,\
     parse_train_csv,level5data,extract_boxed_clouds
 from lyft_dataset_sdk.utils.data_classes import LidarPointCloud
 
-from viz_util_for_lyft import draw_lidar_simple
 
 class MyTestCase(unittest.TestCase):
 
@@ -20,7 +19,10 @@ class MyTestCase(unittest.TestCase):
 
     def test_extract_box_clouds(self):
 
-        extract_boxed_clouds(100)
+        a,b=extract_boxed_clouds(100)
+
+        print(a.shape)
+        print(b.shape)
 
 
 

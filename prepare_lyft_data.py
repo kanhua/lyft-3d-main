@@ -62,7 +62,7 @@ def extract_single_box(train_objects, idx) -> Box:
     wlh = train_objects.iloc[idx, 5:8].values
     obj_name = train_objects.iloc[idx, -1]
     first_train_sample_box = Box(center=list(center_pos), size=list(wlh),
-                                 orientation=orient_q,name=obj_name)
+                                 orientation=orient_q, name=obj_name)
 
     sample_data_token = first_train_sample['data']['LIDAR_TOP']
 
@@ -81,7 +81,7 @@ def extract_single_box(train_objects, idx) -> Box:
     return first_train_sample_box, sample_data_token
 
 
-def extract_boxed_clouds(num_entries, while_list_type_str=['car', 'pedestrian', 'bicycle'],
+def extract_boxed_clouds(num_entries, point_threshold=1024, while_list_type_str=['car', 'pedestrian', 'bicycle'],
                          save_file=os.path.join(ARTIFACT_PATH, "val_pc.pickle")):
     point_clouds_list = []
     one_hot_vector_list = []
@@ -89,7 +89,7 @@ def extract_boxed_clouds(num_entries, while_list_type_str=['car', 'pedestrian', 
     train_objects = parse_train_csv()
 
     # get train box information, center and wlh
-    for idx in range(num_entries):
+    for idx in range(train_objects.shape[0]):
         box, sample_data_token = extract_single_box(train_objects, idx=idx)
 
         print(box.name)
@@ -115,14 +115,41 @@ def extract_boxed_clouds(num_entries, while_list_type_str=['car', 'pedestrian', 
         for k in range(masked_ldp_points.shape[1]):
             masked_ldp_points[0:3, k] -= box.center
 
-        # Store the results
-        point_clouds_list.append(masked_ldp_points)
-        one_hot_vector_list.append(one_hot_vector)
+        # Show number of points
+        print("number of cloud points: {}".format(masked_ldp_points.shape[1]))
+
+        if masked_ldp_points.shape[1] > point_threshold:
+            # Store the results
+            point_clouds_list.append(masked_ldp_points)
+            one_hot_vector_list.append(one_hot_vector)
+
+        if len(point_clouds_list) >= num_entries:
+            break
+
+    point_clouds_list=rearrange_point_clouds(point_clouds_list)
+    one_hot_vector_list=rearrange_one_hot_vector(one_hot_vector_list)
+
 
     # save the file
     with open(save_file, 'wb') as fp:
-        save_dict={"pcl":point_clouds_list,
-                   "ohv":one_hot_vector_list}
+        save_dict = {"pcl": point_clouds_list,
+                     "ohv": one_hot_vector_list}
         pickle.dump(save_dict, fp)
 
     return point_clouds_list, one_hot_vector_list
+
+
+def rearrange_point_clouds(point_clouds_list,num_points=1024):
+    num_clouds = len(point_clouds_list)
+    output_point_clouds = np.empty((num_clouds, num_points, 4))
+
+    for pc_id, pc in enumerate(point_clouds_list):
+        sel_index=np.random.choice(pc.shape[1],num_points)
+        assert num_points == sel_index.shape[0]
+        output_point_clouds[pc_id, :, :] = np.transpose(pc[:,sel_index])
+
+    return output_point_clouds
+
+def rearrange_one_hot_vector(one_hot_vector_list):
+
+    return np.stack(one_hot_vector_list)

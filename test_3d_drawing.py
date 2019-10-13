@@ -25,7 +25,7 @@ def plot_cloud_in_box():
         print(type(item))
 
     #pc = np.loadtxt('mayavi/kitti_sample_scan.txt')
-    fig = draw_lidar_simple(item['pcl'][3])
+    fig = draw_lidar_simple(item['pcl'][3].T)
     #mlab.savefig('pc_view.jpg', figure=fig)
     input()
 
