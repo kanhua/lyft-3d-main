@@ -7,6 +7,7 @@
 
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
+temp_figs/*
 
 # Remove previous ipynb_checkpoints
 #   git rm -r .ipynb_checkpoints/

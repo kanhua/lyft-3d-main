@@ -4,10 +4,13 @@ import pandas as pd
 import numpy as np
 import os
 import pickle
+from typing import Tuple
+from PIL import Image
 
-from lyft_dataset_sdk.lyftdataset import LyftDataset
+from lyft_dataset_sdk.lyftdataset import LyftDataset, LyftDatasetExplorer
 from lyft_dataset_sdk.utils.data_classes import LidarPointCloud, Box, Quaternion
-from lyft_dataset_sdk.utils.geometry_utils import view_points, transform_matrix, points_in_box
+from lyft_dataset_sdk.utils.geometry_utils import view_points, transform_matrix, \
+    points_in_box, BoxVisibility
 
 import matplotlib.pyplot as plt
 
@@ -181,3 +184,142 @@ def rearrange_point_clouds(point_clouds_list, num_points=1024):
 
 def rearrange_one_hot_vector(one_hot_vector_list):
     return np.stack(one_hot_vector_list)
+
+
+def get_sample_images(sample_token: str, ax=None):
+    record = level5data.get("sample", sample_token)
+
+    # Separate RADAR from LIDAR and vision.
+    radar_data = {}
+    nonradar_data = {}
+
+    for channel, token in record["data"].items():
+        sd_record = level5data.get("sample_data", token)
+        sensor_modality = sd_record["sensor_modality"]
+        if sensor_modality in ["lidar", "camera"]:
+            nonradar_data[channel] = token
+        else:
+            radar_data[channel] = token
+
+    # get projective matrix
+
+    for channel, token in nonradar_data.items():
+        sd_record = level5data.get("sample_data", token)
+        sensor_modality = sd_record["sensor_modality"]
+
+        if sensor_modality == "camera":
+            # Load boxes and image.
+            data_path, boxes, camera_intrinsic = level5data.get_sample_data(token, box_vis_level=BoxVisibility.ANY)
+
+            data = Image.open(data_path)
+
+            # Init axes.
+            fig, ax = plt.subplots(1, 1, figsize=(9, 16))
+
+            # Show image.
+            ax.imshow(data)
+
+            for box in boxes:
+                c = np.array(LyftDatasetExplorer.get_color(box.name)) / 255.0
+                box.render(ax, view=camera_intrinsic, normalize=True, colors=(c, c, c))
+
+            # Limit visible range.
+            ax.set_xlim(0, data.size[0])
+            ax.set_ylim(data.size[1], 0)
+
+            fig.savefig("./temp_figs/{}.png".format(token), dpi=300)
+            plt.close()
+
+
+def get_pc_in_image_fov(point_cloud_token, camera_type: str):
+    """
+
+    :param point_cloud_token:
+    :param camera_type: available types: 'CAM_BACK', 'CAM_FRONT_ZOOMED','CAM_FRONT','CAM_FRONT_LEFT','CAM_FRONT_RIGHT','CAM_BACK_RIGHT','CAM_BACK_LEFT','LIDAR_TOP','LIDAR_FRONT_LEFT',
+    :param Box:
+    :return:
+    """
+
+    pc_record = level5data.get("sample_data", point_cloud_token)
+    sample_of_pc_record = level5data.get("sample", pc_record['sample_token'])
+
+    cam_token = sample_of_pc_record['data'][camera_type]
+
+    lidar_file_path = level5data.get_sample_data_path(point_cloud_token)
+    lpc = LidarPointCloud.from_file(lidar_file_path)
+
+    _, _, img, mask = map_pointcloud_to_image(point_cloud_token, cam_token)
+
+    return lpc.points[:, mask], img
+
+    # Get xmax,xmin,ymax,ymin of the box projected on a image (back, front, etc.)
+
+    # Project point cloud on to the image
+
+    # select the indicies that are within the projected boundary
+
+
+def map_pointcloud_to_image(pointsensor_token: str, camera_token: str) -> Tuple:
+    """Given a point sensor (lidar/radar) token and camera sample_data token, load point-cloud and map it to
+    the image plane.
+    The code is adapted from lyft/nuScenes-devkit: lyft_dataset_sdk.lyftdataset.LyftDatasetExplorer.map_pointcloud_to_image()
+
+    Args:
+        pointsensor_token: Lidar/radar sample_data token.
+        camera_token: Camera sample_data token.
+
+    Returns: (pointcloud <np.float: 2, n)>, coloring <np.float: n>, image <Image>).
+
+    """
+
+    lyftd = level5data
+    cam = lyftd.get("sample_data", camera_token)
+    pointsensor = lyftd.get("sample_data", pointsensor_token)
+    pcl_path = lyftd.data_path / pointsensor["filename"]
+    assert pointsensor["sensor_modality"] == "lidar"
+    pc = LidarPointCloud.from_file(pcl_path)
+
+    im = Image.open(str(lyftd.data_path / cam["filename"]))
+
+    # Points live in the point sensor frame. So they need to be transformed via global to the image plane.
+    # First step: transform the point-cloud to the ego vehicle frame for the timestamp of the sweep.
+    cs_record = lyftd.get("calibrated_sensor", pointsensor["calibrated_sensor_token"])
+    pc.rotate(Quaternion(cs_record["rotation"]).rotation_matrix)
+    pc.translate(np.array(cs_record["translation"]))
+
+    # Second step: transform to the global frame.
+    poserecord = lyftd.get("ego_pose", pointsensor["ego_pose_token"])
+    pc.rotate(Quaternion(poserecord["rotation"]).rotation_matrix)
+    pc.translate(np.array(poserecord["translation"]))
+
+    # Third step: transform into the ego vehicle frame for the timestamp of the image.
+    poserecord = lyftd.get("ego_pose", cam["ego_pose_token"])
+    pc.translate(-np.array(poserecord["translation"]))
+    pc.rotate(Quaternion(poserecord["rotation"]).rotation_matrix.T)
+
+    # Fourth step: transform into the camera.
+    cs_record = lyftd.get("calibrated_sensor", cam["calibrated_sensor_token"])
+    pc.translate(-np.array(cs_record["translation"]))
+    pc.rotate(Quaternion(cs_record["rotation"]).rotation_matrix.T)
+
+    # Fifth step: actually take a "picture" of the point cloud.
+    # Grab the depths (camera frame z axis points away from the camera).
+    depths = pc.points[2, :]
+
+    # Retrieve the color from the depth.
+    coloring = depths
+
+    # Take the actual picture (matrix multiplication with camera-matrix + renormalization).
+    points = view_points(pc.points[:3, :], np.array(cs_record["camera_intrinsic"]), normalize=True)
+
+    # Remove points that are either outside or behind the camera. Leave a margin of 1 pixel for aesthetic reasons.
+    mask = np.ones(depths.shape[0], dtype=bool)
+    mask = np.logical_and(mask, depths > 0)
+    mask = np.logical_and(mask, points[0, :] > 1)
+    mask = np.logical_and(mask, points[0, :] < im.size[0] - 1)
+    mask = np.logical_and(mask, points[1, :] > 1)
+    mask = np.logical_and(mask, points[1, :] < im.size[1] - 1)
+    points = points[:, mask]
+    coloring = coloring[mask]
+
+    return points, coloring, im, mask

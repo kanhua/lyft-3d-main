@@ -1,7 +1,7 @@
 import unittest
 
 from prepare_lyft_data import extract_single_box, \
-    parse_train_csv, level5data, extract_boxed_clouds
+    parse_train_csv, level5data, extract_boxed_clouds,get_sample_images
 from lyft_dataset_sdk.utils.data_classes import LidarPointCloud
 
 
@@ -22,6 +22,17 @@ class MyTestCase(unittest.TestCase):
 
         print(a.shape)
         print(b.shape)
+
+    def test_get_sample_images(self):
+
+        #train_df = parse_train_csv()
+
+        #sample_token=train_df.iloc[0,0]
+        #print(sample_token)
+        sample_token = "db8b47bd4ebdf3b3fb21598bb41bd8853d12f8d2ef25ce76edd4af4d04e49341"
+
+        get_sample_images(sample_token)
+
 
 
 if __name__ == '__main__':

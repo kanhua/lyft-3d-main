@@ -194,6 +194,27 @@ def run_kitti_eval_inference():
 
     return batch_output
 
+def run_kitti_format_lyft_eval_inference():
+
+    batch_size=2
+    sess, ops = get_session_and_ops(batch_size, NUM_POINT)
+
+    kitti_pc_file = "/Users/kanhua/Downloads/3d-object-detection-for-autonomous-vehicles/artifacts/kitti_val_pc.pickle"
+
+    with open(kitti_pc_file, 'rb') as fp:
+        item = pickle.load(fp)
+
+    kitti_pc = item['pcl']
+
+    batch_output, batch_center_pred, \
+    batch_hclass_pred, batch_hres_pred, \
+    batch_sclass_pred, batch_sres_pred, batch_scores = \
+        inference(sess, ops, pc=item['pcl'], one_hot_vec=item['ohv'], batch_size=batch_size)
+
+    return batch_output
+
+
+
 
 if __name__ == "__main__":
     if FLAGS.run_lyft_eval:
