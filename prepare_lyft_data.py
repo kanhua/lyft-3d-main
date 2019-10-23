@@ -55,17 +55,9 @@ def parse_train_csv():
 
 
 def extract_single_box(train_objects, idx) -> Box:
-    first_train_id = train_objects.iloc[idx, 0]
+    first_train_id, first_train_sample_box = get_train_data_sample_token_and_box(idx, train_objects)
 
     first_train_sample = level5data.get('sample', first_train_id)
-
-    # Make box
-    orient_q = Quaternion(axis=[0, 0, 1], angle=float(train_objects.loc[idx, 'yaw']))
-    center_pos = train_objects.iloc[idx, 2:5].values
-    wlh = train_objects.iloc[idx, 5:8].values
-    obj_name = train_objects.iloc[idx, -1]
-    first_train_sample_box = Box(center=list(center_pos), size=list(wlh),
-                                 orientation=orient_q, name=obj_name)
 
     sample_data_token = first_train_sample['data']['LIDAR_TOP']
 
@@ -82,6 +74,18 @@ def extract_single_box(train_objects, idx) -> Box:
     first_train_sample_box.rotate(Quaternion(cs_record["rotation"]).inverse)
 
     return first_train_sample_box, sample_data_token
+
+
+def get_train_data_sample_token_and_box(idx, train_objects):
+    first_train_id = train_objects.iloc[idx, 0]
+    # Make box
+    orient_q = Quaternion(axis=[0, 0, 1], angle=float(train_objects.loc[idx, 'yaw']))
+    center_pos = train_objects.iloc[idx, 2:5].values
+    wlh = train_objects.iloc[idx, 5:8].values
+    obj_name = train_objects.iloc[idx, -1]
+    first_train_sample_box = Box(center=list(center_pos), size=list(wlh),
+                                 orientation=orient_q, name=obj_name)
+    return first_train_id, first_train_sample_box
 
 
 def extract_boxed_clouds(num_entries, point_threshold=1024, while_list_type_str=['car', 'pedestrian', 'bicycle'],
