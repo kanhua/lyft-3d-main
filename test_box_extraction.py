@@ -1,7 +1,11 @@
 import unittest
+import matplotlib.pyplot as plt
+from skimage.io import imread
 
 from prepare_lyft_data import extract_single_box, \
-    parse_train_csv, level5data, extract_boxed_clouds,get_sample_images
+    parse_train_csv, level5data, extract_boxed_clouds, \
+    get_sample_images, get_train_data_sample_token_and_box, \
+    get_pc_in_image_fov, get_bounding_box_corners, get_2d_corners_from_projected_box_coordinates
 from lyft_dataset_sdk.utils.data_classes import LidarPointCloud
 
 
@@ -24,15 +28,52 @@ class MyTestCase(unittest.TestCase):
         print(b.shape)
 
     def test_get_sample_images(self):
+        # train_df = parse_train_csv()
 
-        #train_df = parse_train_csv()
-
-        #sample_token=train_df.iloc[0,0]
-        #print(sample_token)
+        # sample_token=train_df.iloc[0,0]
+        # print(sample_token)
         sample_token = "db8b47bd4ebdf3b3fb21598bb41bd8853d12f8d2ef25ce76edd4af4d04e49341"
 
         get_sample_images(sample_token)
 
+    def test_get_sample_image_and_transform_box(self):
+        train_df = parse_train_csv()
+        sample_token, bounding_box = get_train_data_sample_token_and_box(0, train_df)
+
+        first_train_sample = level5data.get('sample', sample_token)
+
+        lidar_data_token = first_train_sample['data']['LIDAR_TOP']
+
+        mask, _, filtered_pc_2d, _, image = get_pc_in_image_fov(lidar_data_token, 'CAM_FRONT', bounding_box)
+
+        fig, ax = plt.subplots(1, 1)
+        ax.imshow(image)
+        print(filtered_pc_2d.shape)
+        ax.plot(filtered_pc_2d[0, :], filtered_pc_2d[1, :], '.')
+        plt.show()
+
+    def test_get_bounding_box_corners(self):
+        train_df = parse_train_csv()
+        sample_token, bounding_box = get_train_data_sample_token_and_box(0, train_df)
+        first_train_sample = level5data.get('sample', sample_token)
+
+        cam_token = first_train_sample['data']['CAM_FRONT']
+
+        box_corners = get_bounding_box_corners(bounding_box, cam_token)
+
+        print(box_corners)
+
+        # check)image
+        cam_image_file = level5data.get_sample_data_path(cam_token)
+        cam_image_mtx = imread(cam_image_file)
+
+        xmin, xmax, ymin, ymax = get_2d_corners_from_projected_box_coordinates(box_corners)
+
+        fig, ax = plt.subplots(1, 1)
+        ax.imshow(cam_image_mtx)
+        ax.plot(box_corners[0, :], box_corners[1, :])
+        ax.plot([xmin, xmin, xmax, xmax], [ymin, ymax, ymin, ymax])
+        plt.show()
 
 
 if __name__ == '__main__':

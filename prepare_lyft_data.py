@@ -61,6 +61,12 @@ def extract_single_box(train_objects, idx) -> Box:
 
     sample_data_token = first_train_sample['data']['LIDAR_TOP']
 
+    first_train_sample_box = transform_box_coordinates(first_train_sample_box, sample_data_token)
+
+    return first_train_sample_box, sample_data_token
+
+
+def transform_box_coordinates(first_train_sample_box, sample_data_token):
     sd_record = level5data.get("sample_data", sample_data_token)
     cs_record = level5data.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
     sensor_record = level5data.get("sensor", cs_record["sensor_token"])
@@ -68,12 +74,35 @@ def extract_single_box(train_objects, idx) -> Box:
     # Move box to ego vehicle coord system
     first_train_sample_box.translate(-np.array(pose_record["translation"]))
     first_train_sample_box.rotate(Quaternion(pose_record["rotation"]).inverse)
-
     #  Move box to sensor coord system
     first_train_sample_box.translate(-np.array(cs_record["translation"]))
     first_train_sample_box.rotate(Quaternion(cs_record["rotation"]).inverse)
 
-    return first_train_sample_box, sample_data_token
+    return first_train_sample_box
+
+
+def get_bounding_box_corners(box: Box, sample_data_token: str):
+    """
+    Get the bounding box corners
+
+    :param box:
+    :param sample_data_token: camera data token
+    :return:
+    """
+    transformed_box = transform_box_coordinates(box, sample_data_token)
+    sd_record = level5data.get("sample_data", sample_data_token)
+    cs_record = level5data.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
+    sensor_record = level5data.get("sensor", cs_record["sensor_token"])
+
+    if sensor_record['modality'] == 'camera':
+        cam_intrinsic_mtx = np.array(cs_record["camera_intrinsic"])
+    else:
+        cam_intrinsic_mtx = None
+
+    # For perspective transformation, the normalization should set to be True
+    box_corners_on_image = view_points(transformed_box.corners(), view=cam_intrinsic_mtx, normalize=True)
+
+    return box_corners_on_image
 
 
 def get_train_data_sample_token_and_box(idx, train_objects):
@@ -235,13 +264,13 @@ def get_sample_images(sample_token: str, ax=None):
             plt.close()
 
 
-def get_pc_in_image_fov(point_cloud_token, camera_type: str):
+def get_pc_in_image_fov(point_cloud_token, camera_type: str, bounding_box=None):
     """
 
     :param point_cloud_token:
     :param camera_type: available types: 'CAM_BACK', 'CAM_FRONT_ZOOMED','CAM_FRONT','CAM_FRONT_LEFT','CAM_FRONT_RIGHT','CAM_BACK_RIGHT','CAM_BACK_LEFT','LIDAR_TOP','LIDAR_FRONT_LEFT',
     :param Box:
-    :return:
+    :return: filtered point cloud array, image
     """
 
     pc_record = level5data.get("sample_data", point_cloud_token)
@@ -252,15 +281,35 @@ def get_pc_in_image_fov(point_cloud_token, camera_type: str):
     lidar_file_path = level5data.get_sample_data_path(point_cloud_token)
     lpc = LidarPointCloud.from_file(lidar_file_path)
 
-    _, _, img, mask = map_pointcloud_to_image(point_cloud_token, cam_token)
+    # _, _, img, mask = map_pointcloud_to_image(point_cloud_token, cam_token)
+    img, lpc, pc_2d_array = project_point_clouds_to_image(cam_token, point_cloud_token)
 
-    return lpc.points[:, mask], img
+    mask = mask_points(pc_2d_array, 0, img.size[0], ymin=0, ymax=img.size[1])
+
+    if bounding_box is not None:
+        projected_corners = get_bounding_box_corners(bounding_box, sample_data_token=cam_token)
+        xmin, xmax, ymin, ymax = get_2d_corners_from_projected_box_coordinates(projected_corners)
+        box_mask = mask_points(pc_2d_array, xmin, xmax, ymin, ymax)
+        mask = np.logical_and(mask, box_mask)
+
+    return mask, lpc.points[:, mask], pc_2d_array[:, mask], lpc, img
 
     # Get xmax,xmin,ymax,ymin of the box projected on a image (back, front, etc.)
 
     # Project point cloud on to the image
 
     # select the indicies that are within the projected boundary
+
+
+def get_2d_corners_from_projected_box_coordinates(projected_corners: np.ndarray):
+    assert projected_corners.shape[0] == 3
+
+    xmin = projected_corners[0, :].min()
+    xmax = projected_corners[0, :].max()
+    ymin = projected_corners[1, :].min()
+    ymax = projected_corners[1, :].max()
+
+    return xmin, xmax, ymin, ymax
 
 
 def map_pointcloud_to_image(pointsensor_token: str, camera_token: str) -> Tuple:
@@ -276,35 +325,7 @@ def map_pointcloud_to_image(pointsensor_token: str, camera_token: str) -> Tuple:
 
     """
 
-    lyftd = level5data
-    cam = lyftd.get("sample_data", camera_token)
-    pointsensor = lyftd.get("sample_data", pointsensor_token)
-    pcl_path = lyftd.data_path / pointsensor["filename"]
-    assert pointsensor["sensor_modality"] == "lidar"
-    pc = LidarPointCloud.from_file(pcl_path)
-
-    im = Image.open(str(lyftd.data_path / cam["filename"]))
-
-    # Points live in the point sensor frame. So they need to be transformed via global to the image plane.
-    # First step: transform the point-cloud to the ego vehicle frame for the timestamp of the sweep.
-    cs_record = lyftd.get("calibrated_sensor", pointsensor["calibrated_sensor_token"])
-    pc.rotate(Quaternion(cs_record["rotation"]).rotation_matrix)
-    pc.translate(np.array(cs_record["translation"]))
-
-    # Second step: transform to the global frame.
-    poserecord = lyftd.get("ego_pose", pointsensor["ego_pose_token"])
-    pc.rotate(Quaternion(poserecord["rotation"]).rotation_matrix)
-    pc.translate(np.array(poserecord["translation"]))
-
-    # Third step: transform into the ego vehicle frame for the timestamp of the image.
-    poserecord = lyftd.get("ego_pose", cam["ego_pose_token"])
-    pc.translate(-np.array(poserecord["translation"]))
-    pc.rotate(Quaternion(poserecord["rotation"]).rotation_matrix.T)
-
-    # Fourth step: transform into the camera.
-    cs_record = lyftd.get("calibrated_sensor", cam["calibrated_sensor_token"])
-    pc.translate(-np.array(cs_record["translation"]))
-    pc.rotate(Quaternion(cs_record["rotation"]).rotation_matrix.T)
+    im, pc, points = project_point_clouds_to_image(camera_token, pointsensor_token)
 
     # Fifth step: actually take a "picture" of the point cloud.
     # Grab the depths (camera frame z axis points away from the camera).
@@ -312,9 +333,6 @@ def map_pointcloud_to_image(pointsensor_token: str, camera_token: str) -> Tuple:
 
     # Retrieve the color from the depth.
     coloring = depths
-
-    # Take the actual picture (matrix multiplication with camera-matrix + renormalization).
-    points = view_points(pc.points[:3, :], np.array(cs_record["camera_intrinsic"]), normalize=True)
 
     # Remove points that are either outside or behind the camera. Leave a margin of 1 pixel for aesthetic reasons.
     mask = np.ones(depths.shape[0], dtype=bool)
@@ -327,3 +345,66 @@ def map_pointcloud_to_image(pointsensor_token: str, camera_token: str) -> Tuple:
     coloring = coloring[mask]
 
     return points, coloring, im, mask
+
+
+def mask_points(points: np.ndarray, xmin,
+                xmax, ymin, ymax, depth_min=0, buffer_pixel=1) -> np.ndarray:
+    """
+
+    :param points:
+    :param xmin:
+    :param xmax:
+    :param ymin:
+    :param ymax:
+    :param depth_min:
+    :param buffer_pixel:
+    :return: index array
+    """
+    depths = points[2, :]
+
+    mask = np.ones(depths.shape[0], dtype=bool)
+    mask = np.logical_and(mask, depths > depth_min)
+    mask = np.logical_and(mask, points[0, :] > xmin + buffer_pixel)
+    mask = np.logical_and(mask, points[0, :] < xmax - buffer_pixel)
+    mask = np.logical_and(mask, points[1, :] > ymin + buffer_pixel)
+    mask = np.logical_and(mask, points[1, :] < ymax - buffer_pixel)
+
+    return mask
+
+
+def project_point_clouds_to_image(camera_token: str, pointsensor_token: str):
+    """
+
+    :param camera_token:
+    :param pointsensor_token:
+    :return: (image array, transformed 3d point cloud to camera coordinate, 2d point cloud array)
+    """
+
+    lyftd = level5data
+    cam = lyftd.get("sample_data", camera_token)
+    pointsensor = lyftd.get("sample_data", pointsensor_token)
+    pcl_path = lyftd.data_path / pointsensor["filename"]
+    assert pointsensor["sensor_modality"] == "lidar"
+    pc = LidarPointCloud.from_file(pcl_path)
+    im = Image.open(str(lyftd.data_path / cam["filename"]))
+    # Points live in the point sensor frame. So they need to be transformed via global to the image plane.
+    # First step: transform the point-cloud to the ego vehicle frame for the timestamp of the sweep.
+    cs_record = lyftd.get("calibrated_sensor", pointsensor["calibrated_sensor_token"])
+    pc.rotate(Quaternion(cs_record["rotation"]).rotation_matrix)
+    pc.translate(np.array(cs_record["translation"]))
+    # Second step: transform to the global frame.
+    poserecord = lyftd.get("ego_pose", pointsensor["ego_pose_token"])
+    pc.rotate(Quaternion(poserecord["rotation"]).rotation_matrix)
+    pc.translate(np.array(poserecord["translation"]))
+    # Third step: transform into the ego vehicle frame for the timestamp of the image.
+    poserecord = lyftd.get("ego_pose", cam["ego_pose_token"])
+    pc.translate(-np.array(poserecord["translation"]))
+    pc.rotate(Quaternion(poserecord["rotation"]).rotation_matrix.T)
+    # Fourth step: transform into the camera.
+    cs_record = lyftd.get("calibrated_sensor", cam["calibrated_sensor_token"])
+    pc.translate(-np.array(cs_record["translation"]))
+    pc.rotate(Quaternion(cs_record["rotation"]).rotation_matrix.T)
+    # Take the actual picture (matrix multiplication with camera-matrix + renormalization).
+    point_cloud_2d = view_points(pc.points[:3, :], np.array(cs_record["camera_intrinsic"]), normalize=True)
+
+    return im, pc, point_cloud_2d
