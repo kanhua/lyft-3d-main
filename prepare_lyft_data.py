@@ -437,6 +437,30 @@ def transform_world_to_image_coordinate(word_coord_array, camera_token: str):
     return view_points(sense_coord_array, cam_intrinsic_mtx, normalize=True)
 
 
+def transform_image_to_cam_coordinate(image_array_p: np.array, camera_token: str):
+    sd_record = level5data.get("sample_data", camera_token)
+    cs_record = level5data.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
+    sensor_record = level5data.get("sensor", cs_record["sensor_token"])
+    pose_record = level5data.get("ego_pose", sd_record["ego_pose_token"])
+
+    # inverse the viewpoint transformation
+    def normalization(input_array):
+        input_array[0:2, :] = input_array[0:2, :] * input_array[2:3, :].repeat(2, 0).reshape(2, input_array.shape[1])
+        return input_array
+
+    image_array = normalization(np.copy(image_array_p))
+    image_array = np.concatenate((image_array.ravel(), np.array([1])))
+    image_array = image_array.reshape(4, 1)
+
+    cam_intrinsic_mtx = np.array(cs_record["camera_intrinsic"])
+    view = cam_intrinsic_mtx
+    viewpad = np.eye(4)
+    viewpad[: view.shape[0], : view.shape[1]] = view
+    image_in_cam_coord = np.dot(np.linalg.inv(viewpad), image_array)
+
+    return image_in_cam_coord[0:3,:]
+
+
 def transform_image_to_world_coordinate(image_array: np.array, camera_token: str):
     """
 

@@ -7,8 +7,9 @@ from prepare_lyft_data import extract_single_box, \
     parse_train_csv, level5data, extract_boxed_clouds, \
     get_sample_images, get_train_data_sample_token_and_box, \
     get_pc_in_image_fov, get_bounding_box_corners, \
-    get_2d_corners_from_projected_box_coordinates, transform_image_to_world_coordinate
+    get_2d_corners_from_projected_box_coordinates, transform_image_to_cam_coordinate
 from lyft_dataset_sdk.utils.data_classes import LidarPointCloud
+from lyft_dataset_sdk.utils.geometry_utils import view_points
 
 
 class MyTestCase(unittest.TestCase):
@@ -54,12 +55,16 @@ class MyTestCase(unittest.TestCase):
         ax.plot(filtered_pc_2d[0, :], filtered_pc_2d[1, :], '.')
         plt.show()
 
-    def test_transform_image_to_world_coord(self):
+    def test_transform_image_to_camera_coord(self):
         train_df = parse_train_csv()
         sample_token, bounding_box = get_train_data_sample_token_and_box(0, train_df)
         first_train_sample = level5data.get('sample', sample_token)
 
         cam_token = first_train_sample['data']['CAM_FRONT']
+        sd_record = level5data.get("sample_data", cam_token)
+        cs_record = level5data.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
+
+        cam_intrinsic_mtx = np.array(cs_record["camera_intrinsic"])
 
         box_corners = get_bounding_box_corners(bounding_box, cam_token)
 
@@ -72,7 +77,11 @@ class MyTestCase(unittest.TestCase):
         random_depth = 20
         image_center = np.array([[(xmax + xmin) / 2, (ymax + ymin) / 2, random_depth]]).T
 
-        image_wc = transform_image_to_world_coordinate(image_center, cam_token)
+        image_wc = transform_image_to_cam_coordinate(image_center, cam_token)
+
+        transformed_back_image_center = view_points(image_wc, cam_intrinsic_mtx, normalize=True)
+
+        self.assertTrue(np.allclose(image_center[0:2, :], transformed_back_image_center[0:2, :]))
 
     def test_get_bounding_box_corners(self):
         train_df = parse_train_csv()
@@ -85,7 +94,7 @@ class MyTestCase(unittest.TestCase):
 
         print(box_corners)
 
-        # check)image
+        # check image
         cam_image_file = level5data.get_sample_data_path(cam_token)
         cam_image_mtx = imread(cam_image_file)
 
