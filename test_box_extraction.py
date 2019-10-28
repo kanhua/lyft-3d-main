@@ -1,11 +1,13 @@
 import unittest
 import matplotlib.pyplot as plt
 from skimage.io import imread
+import numpy as np
 
 from prepare_lyft_data import extract_single_box, \
     parse_train_csv, level5data, extract_boxed_clouds, \
     get_sample_images, get_train_data_sample_token_and_box, \
-    get_pc_in_image_fov, get_bounding_box_corners, get_2d_corners_from_projected_box_coordinates
+    get_pc_in_image_fov, get_bounding_box_corners, \
+    get_2d_corners_from_projected_box_coordinates, transform_image_to_world_coordinate
 from lyft_dataset_sdk.utils.data_classes import LidarPointCloud
 
 
@@ -51,6 +53,26 @@ class MyTestCase(unittest.TestCase):
         print(filtered_pc_2d.shape)
         ax.plot(filtered_pc_2d[0, :], filtered_pc_2d[1, :], '.')
         plt.show()
+
+    def test_transform_image_to_world_coord(self):
+        train_df = parse_train_csv()
+        sample_token, bounding_box = get_train_data_sample_token_and_box(0, train_df)
+        first_train_sample = level5data.get('sample', sample_token)
+
+        cam_token = first_train_sample['data']['CAM_FRONT']
+
+        box_corners = get_bounding_box_corners(bounding_box, cam_token)
+
+        # check)image
+        cam_image_file = level5data.get_sample_data_path(cam_token)
+        cam_image_mtx = imread(cam_image_file)
+
+        xmin, xmax, ymin, ymax = get_2d_corners_from_projected_box_coordinates(box_corners)
+
+        random_depth = 20
+        image_center = np.array([[(xmax + xmin) / 2, (ymax + ymin) / 2, random_depth]]).T
+
+        image_wc = transform_image_to_world_coordinate(image_center, cam_token)
 
     def test_get_bounding_box_corners(self):
         train_df = parse_train_csv()

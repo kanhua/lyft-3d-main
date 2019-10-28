@@ -408,3 +408,77 @@ def project_point_clouds_to_image(camera_token: str, pointsensor_token: str):
     point_cloud_2d = view_points(pc.points[:3, :], np.array(cs_record["camera_intrinsic"]), normalize=True)
 
     return im, pc, point_cloud_2d
+
+
+def transform_world_to_image_coordinate(word_coord_array, camera_token: str):
+    sd_record = level5data.get("sample_data", camera_token)
+    cs_record = level5data.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
+    sensor_record = level5data.get("sensor", cs_record["sensor_token"])
+    pose_record = level5data.get("ego_pose", sd_record["ego_pose_token"])
+
+    cam_intrinsic_mtx = np.array(cs_record["camera_intrinsic"])
+
+    # homogeneous coordinate to non-homogeneous one
+
+    pose_to_sense_rot_mtx = Quaternion(cs_record['rotation']).rotation_matrix.T
+    world_to_pose_rot_mtx = Quaternion(pose_record['rotation']).rotation_matrix.T
+
+    ego_coord_array = np.dot(world_to_pose_rot_mtx, word_coord_array)
+
+    t = np.array(pose_record['translation'])
+    for i in range(3):
+        ego_coord_array[i, :] = ego_coord_array[i, :] - t[i]
+
+    sense_coord_array = np.dot(pose_to_sense_rot_mtx, ego_coord_array)
+    t = np.array(cs_record['translation'])
+    for i in range(3):
+        sense_coord_array[i, :] = sense_coord_array[i, :] - t[i]
+
+    return view_points(sense_coord_array, cam_intrinsic_mtx, normalize=True)
+
+
+def transform_image_to_world_coordinate(image_array: np.array, camera_token: str):
+    """
+
+    :param image_array: 3xN np.ndarray
+    :param camera_token:
+    :return:
+    """
+
+    sd_record = level5data.get("sample_data", camera_token)
+    cs_record = level5data.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
+    sensor_record = level5data.get("sensor", cs_record["sensor_token"])
+    pose_record = level5data.get("ego_pose", sd_record["ego_pose_token"])
+
+    # inverse the viewpoint transformation
+
+    cam_intrinsic_mtx = np.array(cs_record["camera_intrinsic"])
+    image_in_cam_coord = np.dot(np.linalg.inv(cam_intrinsic_mtx), image_array)
+
+    print(image_in_cam_coord)
+    # TODO: think of how to do normalization properly
+    # image_in_cam_coord = image_in_cam_coord / image_in_cam_coord[3:].ravel()
+
+    # homogeneous coordinate to non-homogeneous one
+    image_in_cam_coord = image_in_cam_coord[0:3, :]
+
+    sens_to_pose_rot_mtx = Quaternion(cs_record['rotation']).rotation_matrix
+
+    image_in_pose_coord = np.dot(sens_to_pose_rot_mtx, image_in_cam_coord)
+    t = np.array(cs_record['translation'])
+    for i in range(3):
+        image_in_pose_coord[i, :] = image_in_cam_coord[i, :] + t[i]
+
+    print(cs_record)
+
+    print("in pose record:", image_in_pose_coord)
+
+    pose_to_world_rot_mtx = Quaternion(pose_record['rotation']).rotation_matrix
+
+    image_in_world_coord = np.dot(pose_to_world_rot_mtx,
+                                  image_in_pose_coord)
+    t = np.array(pose_record['translation'])
+    for i in range(3):
+        image_in_world_coord[i, :] = image_in_world_coord[i, :] + t[i]
+
+    return image_in_world_coord
