@@ -61,12 +61,12 @@ def extract_single_box(train_objects, idx) -> Box:
 
     sample_data_token = first_train_sample['data']['LIDAR_TOP']
 
-    first_train_sample_box = transform_box_coordinates(first_train_sample_box, sample_data_token)
+    first_train_sample_box = transform_box_from_world_to_sendor_coordinates(first_train_sample_box, sample_data_token)
 
     return first_train_sample_box, sample_data_token
 
 
-def transform_box_coordinates(first_train_sample_box, sample_data_token):
+def transform_box_from_world_to_sendor_coordinates(first_train_sample_box, sample_data_token):
     sd_record = level5data.get("sample_data", sample_data_token)
     cs_record = level5data.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
     sensor_record = level5data.get("sensor", cs_record["sensor_token"])
@@ -89,7 +89,7 @@ def get_bounding_box_corners(box: Box, sample_data_token: str):
     :param sample_data_token: camera data token
     :return:
     """
-    transformed_box = transform_box_coordinates(box, sample_data_token)
+    transformed_box = transform_box_from_world_to_sendor_coordinates(box, sample_data_token)
     sd_record = level5data.get("sample_data", sample_data_token)
     cs_record = level5data.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
     sensor_record = level5data.get("sensor", cs_record["sensor_token"])
@@ -264,13 +264,14 @@ def get_sample_images(sample_token: str, ax=None):
             plt.close()
 
 
-def get_pc_in_image_fov(point_cloud_token, camera_type: str, bounding_box=None):
+def get_pc_in_image_fov(point_cloud_token: str, camera_type: str, bounding_box=None):
     """
 
     :param point_cloud_token:
     :param camera_type: available types: 'CAM_BACK', 'CAM_FRONT_ZOOMED','CAM_FRONT','CAM_FRONT_LEFT','CAM_FRONT_RIGHT','CAM_BACK_RIGHT','CAM_BACK_LEFT','LIDAR_TOP','LIDAR_FRONT_LEFT',
     :param Box:
-    :return: filtered point cloud array, image
+    :return: mask index, filtered lidar points array,
+    filetered lindar points array projected onto image plane, LidarPointCloud object, 2D image array
     """
 
     pc_record = level5data.get("sample_data", point_cloud_token)
@@ -458,7 +459,7 @@ def transform_image_to_cam_coordinate(image_array_p: np.array, camera_token: str
     viewpad[: view.shape[0], : view.shape[1]] = view
     image_in_cam_coord = np.dot(np.linalg.inv(viewpad), image_array)
 
-    return image_in_cam_coord[0:3,:]
+    return image_in_cam_coord[0:3, :]
 
 
 def transform_image_to_world_coordinate(image_array: np.array, camera_token: str):
@@ -506,3 +507,95 @@ def transform_image_to_world_coordinate(image_array: np.array, camera_token: str
         image_in_world_coord[i, :] = image_in_world_coord[i, :] + t[i]
 
     return image_in_world_coord
+
+
+def prepare_frustum_data(num_entries_to_get: int, output_filename: str):
+    train_df = parse_train_csv()
+
+    id_list = []  # int number
+    box2d_list = []  # [xmin,ymin,xmax,ymax]
+    box3d_list = []  # (8,3) array in rect camera coord
+    input_list = []  # channel number = 4, xyz,intensity in rect camera coord
+    label_list = []  # 1 for roi object, 0 for clutter
+    type_list = []  # string e.g. Car
+    heading_list = []  # ry (along y-axis in rect camera coord) radius of
+    # (cont.) clockwise angle from positive x axis in velo coord.
+    box3d_size_list = []  # array of l,w,h
+    frustum_angle_list = []  # angle of 2d box center from pos x-axis
+
+    for data_idx in range(num_entries_to_get):
+        sample_token, bounding_box = get_train_data_sample_token_and_box(data_idx, train_df)
+
+        object_of_interest_name = ['car', 'pedestrian', 'cyclist']
+        if bounding_box.name in object_of_interest_name:
+            label = 1
+        else:
+            label = 0
+
+        sample_record = level5data.get('sample', sample_token)
+
+        lidar_data_token = sample_record['data']['LIDAR_TOP']
+
+        bounding_box = transform_box_from_world_to_sendor_coordinates(bounding_box, lidar_data_token)
+
+        heading_angle = bounding_box.orientation
+
+        w, l, h = bounding_box.wlh
+        lwh = np.array([l, w, h])
+
+        mask, point_clouds_in_box, _, _, image = get_pc_in_image_fov(lidar_data_token, 'CAM_FRONT', bounding_box)
+
+        # get frustum angle
+        cam_token = sample_record['data']['CAM_FRONT']
+
+        box_corners = get_bounding_box_corners(bounding_box, cam_token)
+
+        box3d_pts_3d = np.transpose(box_corners)
+
+        xmin, xmax, ymin, ymax = get_2d_corners_from_projected_box_coordinates(box_corners)
+
+        random_depth = 20
+        image_center = np.array([[(xmax + xmin) / 2, (ymax + ymin) / 2, random_depth]]).T
+
+        image_center_in_cam_coord = transform_image_to_cam_coordinate(image_center, cam_token)
+
+        frustum_angle = -np.arctan2(image_center_in_cam_coord[2, :], image_center_in_cam_coord[0, :])
+
+        # TODO: note that the convention of matrix is different in frustum-pointnet
+        id_list.append(data_idx)
+        box2d_list.append(np.array([xmin, ymin, xmax, ymax]))
+        assert box3d_pts_3d.shape == (8, 3)
+        box3d_list.append(box3d_pts_3d)  # 3D bounding box projected onto image plane
+        input_list.append(point_clouds_in_box)
+        label_list.append(label)
+        type_list.append(bounding_box.name)
+        heading_list.append(heading_angle)
+        box3d_size_list.append(lwh)
+        frustum_angle_list.append(frustum_angle)
+
+    # check that everything is implemented
+    assert len(id_list) > 0
+    assert len(box2d_list) > 0
+    assert len(box3d_list) > 0
+    assert len(input_list) > 0
+    assert len(label_list) > 0
+    assert len(type_list) > 0
+    assert len(heading_list) > 0
+    assert len(box3d_size_list) > 0
+    assert len(frustum_angle_list) > 0
+
+    with open(output_filename, 'wb') as fp:
+        pickle.dump(id_list, fp)
+        pickle.dump(box2d_list, fp)
+        pickle.dump(box3d_list, fp)
+        pickle.dump(input_list, fp)
+        pickle.dump(label_list, fp)
+        pickle.dump(type_list, fp)
+        pickle.dump(heading_list, fp)
+        pickle.dump(box3d_size_list, fp)
+        pickle.dump(frustum_angle_list, fp)
+
+
+if __name__ == "__main__":
+    output_file = os.path.join("./artifact/lyft_val.pickle")
+    prepare_frustum_data(10, output_file)

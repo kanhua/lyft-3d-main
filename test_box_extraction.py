@@ -77,9 +77,11 @@ class MyTestCase(unittest.TestCase):
         random_depth = 20
         image_center = np.array([[(xmax + xmin) / 2, (ymax + ymin) / 2, random_depth]]).T
 
-        image_wc = transform_image_to_cam_coordinate(image_center, cam_token)
+        image_center_in_cam_coord = transform_image_to_cam_coordinate(image_center, cam_token)
 
-        transformed_back_image_center = view_points(image_wc, cam_intrinsic_mtx, normalize=True)
+        self.assertTrue(np.isclose(random_depth,image_center_in_cam_coord[2:]))
+
+        transformed_back_image_center = view_points(image_center_in_cam_coord, cam_intrinsic_mtx, normalize=True)
 
         self.assertTrue(np.allclose(image_center[0:2, :], transformed_back_image_center[0:2, :]))
 
