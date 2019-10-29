@@ -523,27 +523,30 @@ def prepare_frustum_data(num_entries_to_get: int, output_filename: str):
     box3d_size_list = []  # array of l,w,h
     frustum_angle_list = []  # angle of 2d box center from pos x-axis
 
-    for data_idx in range(num_entries_to_get):
+    data_idx = 0
+    num_entries_to_obtained=0
+    while num_entries_to_obtained < num_entries_to_get:
         sample_token, bounding_box = get_train_data_sample_token_and_box(data_idx, train_df)
 
         object_of_interest_name = ['car', 'pedestrian', 'cyclist']
-        if bounding_box.name in object_of_interest_name:
-            label = 1
-        else:
-            label = 0
+
 
         sample_record = level5data.get('sample', sample_token)
 
         lidar_data_token = sample_record['data']['LIDAR_TOP']
 
-        bounding_box = transform_box_from_world_to_sendor_coordinates(bounding_box, lidar_data_token)
-
-        heading_angle = bounding_box.orientation
+        # bounding_box_sensor_coord = transform_box_from_world_to_sendor_coordinates(np.copy(bounding_box), lidar_data_token)
 
         w, l, h = bounding_box.wlh
         lwh = np.array([l, w, h])
 
         mask, point_clouds_in_box, _, _, image = get_pc_in_image_fov(lidar_data_token, 'CAM_FRONT', bounding_box)
+
+        label=np.copy(mask)
+
+
+        # bouding box is now in camera coordinate
+        heading_angle = float(bounding_box.orientation.angle)
 
         # get frustum angle
         cam_token = sample_record['data']['CAM_FRONT']
@@ -559,19 +562,29 @@ def prepare_frustum_data(num_entries_to_get: int, output_filename: str):
 
         image_center_in_cam_coord = transform_image_to_cam_coordinate(image_center, cam_token)
 
-        frustum_angle = -np.arctan2(image_center_in_cam_coord[2, :], image_center_in_cam_coord[0, :])
+        assert image_center_in_cam_coord.shape[1]==1
+        frustum_angle = -np.arctan2(image_center_in_cam_coord[2, 0], image_center_in_cam_coord[0, 0])
 
         # TODO: note that the convention of matrix is different in frustum-pointnet
-        id_list.append(data_idx)
-        box2d_list.append(np.array([xmin, ymin, xmax, ymax]))
-        assert box3d_pts_3d.shape == (8, 3)
-        box3d_list.append(box3d_pts_3d)  # 3D bounding box projected onto image plane
-        input_list.append(point_clouds_in_box)
-        label_list.append(label)
-        type_list.append(bounding_box.name)
-        heading_list.append(heading_angle)
-        box3d_size_list.append(lwh)
-        frustum_angle_list.append(frustum_angle)
+        point_clouds_in_box = np.transpose(point_clouds_in_box)
+
+        if point_clouds_in_box.shape[0] > 0 and (bounding_box.name in object_of_interest_name):
+            id_list.append(num_entries_to_obtained)
+            box2d_list.append(np.array([xmin, ymin, xmax, ymax]))
+            assert box3d_pts_3d.shape == (8, 3)
+            box3d_list.append(box3d_pts_3d)  # 3D bounding box projected onto image plane
+            assert point_clouds_in_box.shape[1] == 4
+            # assert point_clouds_in_box.shape[0] >0
+            print(point_clouds_in_box.shape)
+            input_list.append(point_clouds_in_box)
+            label_list.append(label)
+            type_list.append(bounding_box.name)
+            heading_list.append(heading_angle)
+            box3d_size_list.append(lwh)
+            frustum_angle_list.append(frustum_angle)
+            num_entries_to_obtained+=1
+
+        data_idx += 1
 
     # check that everything is implemented
     assert len(id_list) > 0
@@ -598,4 +611,4 @@ def prepare_frustum_data(num_entries_to_get: int, output_filename: str):
 
 if __name__ == "__main__":
     output_file = os.path.join("./artifact/lyft_val.pickle")
-    prepare_frustum_data(10, output_file)
+    prepare_frustum_data(128, output_file)
