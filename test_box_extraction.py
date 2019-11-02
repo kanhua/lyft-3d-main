@@ -47,7 +47,10 @@ class MyTestCase(unittest.TestCase):
 
         lidar_data_token = first_train_sample['data']['LIDAR_TOP']
 
-        mask, _, filtered_pc_2d, _, image = get_pc_in_image_fov(lidar_data_token, 'CAM_FRONT', bounding_box)
+        mask, lpc_array_in_cam_coord, filtered_pc_2d, _, image = get_pc_in_image_fov(lidar_data_token, 'CAM_FRONT', bounding_box)
+
+        plt.scatter(lpc_array_in_cam_coord[0,:],lpc_array_in_cam_coord[2,:])
+
 
         fig, ax = plt.subplots(1, 1)
         ax.imshow(image)

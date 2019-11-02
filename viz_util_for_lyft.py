@@ -20,7 +20,7 @@ def draw_lidar_simple(pc, color=None):
     fig = mlab.figure(figure=None, bgcolor=(0,0,0), fgcolor=None, engine=None, size=(1600, 1000))
     if color is None: color = pc[2,:]
     #draw points
-    mlab.points3d(pc[0,:], pc[1,:], pc[2,:], color, color=None, mode='point', colormap = 'gnuplot', scale_factor=1, figure=fig)
+    mlab.points3d(-pc[0,:], pc[1,:], pc[2,:], color, color=None, mode='point', colormap = 'gnuplot', scale_factor=1, figure=fig)
     #draw origin
     mlab.points3d(0, 0, 0, color=(1,1,1), mode='sphere', scale_factor=0.2)
     #draw axis

@@ -1,6 +1,9 @@
 import pickle
+import numpy as np
 from prepare_lyft_data import extract_single_box, \
-    parse_train_csv,level5data,extract_boxed_clouds
+    parse_train_csv,level5data,extract_boxed_clouds,\
+    get_train_data_sample_token_and_box,get_pc_in_image_fov,\
+    extract_other_sensor_token,transform_box_from_world_to_sendor_coordinates
 from lyft_dataset_sdk.utils.data_classes import LidarPointCloud
 
 from viz_util_for_lyft import draw_lidar_simple
@@ -46,7 +49,33 @@ def plot_kitti_point_cloud():
 
     input()
 
+def debug_bounding_box_in_cam_coord():
+    train_df=parse_train_csv()
+    data_idx=0
+    sample_token, bounding_box = get_train_data_sample_token_and_box(data_idx, train_df)
+
+    object_of_interest_name = ['car', 'pedestrian', 'cyclist']
+
+    sample_record = level5data.get('sample', sample_token)
+
+    lidar_data_token = sample_record['data']['LIDAR_TOP']
+
+    w, l, h = bounding_box.wlh
+    lwh = np.array([l, w, h])
+
+    dummy_bounding_box = bounding_box.copy()
+    mask, point_clouds_in_box, _, _, image = get_pc_in_image_fov(lidar_data_token, 'CAM_FRONT',
+                                                                 bounding_box)
+    assert dummy_bounding_box == bounding_box
+
+    camera_token = extract_other_sensor_token('CAM_FRONT', lidar_data_token)
+    bounding_box_sensor_coord = transform_box_from_world_to_sendor_coordinates(bounding_box, camera_token)
+    draw_lidar_simple(point_clouds_in_box)
+    input()
+
+
 #plot_demo_lyft_lidar()
-plot_cloud_in_box()
+#plot_cloud_in_box()
 
 #plot_kitti_point_cloud()
+debug_bounding_box_in_cam_coord()
