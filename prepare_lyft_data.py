@@ -699,4 +699,4 @@ def prepare_frustum_data(num_entries_to_get: int, output_filename: str):
 
 if __name__ == "__main__":
     output_file = os.path.join("./artifact/lyft_val.pickle")
-    prepare_frustum_data(128, output_file)
+    prepare_frustum_data(1024, output_file)
