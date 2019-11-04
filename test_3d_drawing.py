@@ -3,7 +3,7 @@ import numpy as np
 from prepare_lyft_data import extract_single_box, \
     parse_train_csv,level5data,extract_boxed_clouds,\
     get_train_data_sample_token_and_box,get_pc_in_image_fov,\
-    extract_other_sensor_token,transform_box_from_world_to_sendor_coordinates
+    extract_other_sensor_token,transform_box_from_world_to_sensor_coordinates
 from lyft_dataset_sdk.utils.data_classes import LidarPointCloud
 
 from viz_util_for_lyft import draw_lidar_simple
@@ -69,7 +69,7 @@ def debug_bounding_box_in_cam_coord():
     assert dummy_bounding_box == bounding_box
 
     camera_token = extract_other_sensor_token('CAM_FRONT', lidar_data_token)
-    bounding_box_sensor_coord = transform_box_from_world_to_sendor_coordinates(bounding_box, camera_token)
+    bounding_box_sensor_coord = transform_box_from_world_to_sensor_coordinates(bounding_box, camera_token)
     draw_lidar_simple(point_clouds_in_box)
     input()
 

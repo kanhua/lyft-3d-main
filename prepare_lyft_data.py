@@ -61,12 +61,12 @@ def extract_single_box(train_objects, idx) -> Box:
 
     sample_data_token = first_train_sample['data']['LIDAR_TOP']
 
-    first_train_sample_box = transform_box_from_world_to_sendor_coordinates(first_train_sample_box, sample_data_token)
+    first_train_sample_box = transform_box_from_world_to_sensor_coordinates(first_train_sample_box, sample_data_token)
 
     return first_train_sample_box, sample_data_token
 
 
-def transform_box_from_world_to_sendor_coordinates(first_train_sample_box: Box, sample_data_token: str):
+def transform_box_from_world_to_sensor_coordinates(first_train_sample_box: Box, sample_data_token: str):
     sample_box = first_train_sample_box.copy()
     sd_record = level5data.get("sample_data", sample_data_token)
     cs_record = level5data.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
@@ -82,6 +82,67 @@ def transform_box_from_world_to_sendor_coordinates(first_train_sample_box: Box, 
     return sample_box
 
 
+def transform_box_from_world_to_ego_coordinates(first_train_sample_box: Box, sample_data_token: str):
+    sample_box = first_train_sample_box.copy()
+    sd_record = level5data.get("sample_data", sample_data_token)
+    cs_record = level5data.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
+    sensor_record = level5data.get("sensor", cs_record["sensor_token"])
+    pose_record = level5data.get("ego_pose", sd_record["ego_pose_token"])
+    # Move box to ego vehicle coord system
+    sample_box.translate(-np.array(pose_record["translation"]))
+    sample_box.rotate(Quaternion(pose_record["rotation"]).inverse)
+
+    return sample_box
+
+
+def transform_box_from_world_to_flat_vehicle_coordinates(first_train_sample_box: Box, sample_data_token: str):
+    sample_box = first_train_sample_box.copy()
+    sd_record = level5data.get("sample_data", sample_data_token)
+    cs_record = level5data.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
+    sensor_record = level5data.get("sensor", cs_record["sensor_token"])
+    pose_record = level5data.get("ego_pose", sd_record["ego_pose_token"])
+
+    # Move box to ego vehicle coord system parallel to world z plane
+    ypr = Quaternion(pose_record["rotation"]).yaw_pitch_roll
+    yaw = ypr[0]
+
+    sample_box.translate(-np.array(pose_record["translation"]))
+    sample_box.rotate(Quaternion(scalar=np.cos(yaw / 2), vector=[0, 0, np.sin(yaw / 2)]).inverse)
+
+    return sample_box
+
+
+def transform_box_from_world_to_flat_sensor_coordinates(first_train_sample_box: Box, sample_data_token: str):
+    sample_box = first_train_sample_box.copy()
+    sd_record = level5data.get("sample_data", sample_data_token)
+    cs_record = level5data.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
+    sensor_record = level5data.get("sensor", cs_record["sensor_token"])
+    pose_record = level5data.get("ego_pose", sd_record["ego_pose_token"])
+
+    # Move box to ego vehicle coord system parallel to world z plane
+    ypr = Quaternion(pose_record["rotation"]).yaw_pitch_roll
+    yaw = ypr[0]
+
+    sample_box.translate(-np.array(pose_record["translation"]))
+    sample_box.rotate(Quaternion(scalar=np.cos(yaw / 2), vector=[0, 0, np.sin(yaw / 2)]).inverse)
+
+    # Move box to sensor vehicle coord system parallel to world z plane
+    # We need to steps, because camera coordinate is x(right), z(front), y(down)
+
+    inv_ypr = Quaternion(cs_record["rotation"]).inverse.yaw_pitch_roll
+
+    angz = inv_ypr[0]
+    angx = inv_ypr[2]
+
+    sample_box.translate(-np.array(cs_record['translation']))
+
+    # rotate around z-axis
+    sample_box.rotate(Quaternion(scalar=np.cos(angz / 2), vector=[0, 0, np.sin(angz / 2)]))
+    sample_box.rotate(Quaternion(scalar=np.cos(angx / 2), vector=[np.sin(angx / 2), 0, 0]))
+
+    return sample_box
+
+
 def get_bounding_box_corners(box: Box, sample_data_token: str):
     """
     Get the bounding box corners
@@ -90,7 +151,7 @@ def get_bounding_box_corners(box: Box, sample_data_token: str):
     :param sample_data_token: camera data token
     :return:
     """
-    transformed_box = transform_box_from_world_to_sendor_coordinates(box, sample_data_token)
+    transformed_box = transform_box_from_world_to_sensor_coordinates(box, sample_data_token)
     sd_record = level5data.get("sample_data", sample_data_token)
     cs_record = level5data.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
     sensor_record = level5data.get("sensor", cs_record["sensor_token"])
@@ -623,7 +684,7 @@ def prepare_frustum_data(num_entries_to_get: int, output_filename: str):
         assert dummy_bounding_box == bounding_box
 
         camera_token = extract_other_sensor_token('CAM_FRONT', lidar_data_token)
-        bounding_box_sensor_coord = transform_box_from_world_to_sendor_coordinates(bounding_box, camera_token)
+        bounding_box_sensor_coord = transform_box_from_world_to_sensor_coordinates(bounding_box, camera_token)
 
         _, label = extract_pc_in_box3d(point_clouds_in_box[0:3, :], bounding_box_sensor_coord.corners())
         # plot_cam_top_view(point_clouds_in_box[0:3,label],bounding_box_sensor_coord)
@@ -631,7 +692,9 @@ def prepare_frustum_data(num_entries_to_get: int, output_filename: str):
         # assert np.any(label)
 
         # bouding box is now in camera coordinate
-        heading_angle = float(bounding_box_sensor_coord.orientation.angle)
+        # Note that heading angle should be in flat camera coordinate
+        bounding_box_flat_sensor_coord=transform_box_from_world_to_flat_sensor_coordinates(bounding_box,camera_token)
+        heading_angle = -(float(bounding_box_flat_sensor_coord.orientation.angle)-np.pi/2) # convert euler angle to yaw angle
 
         # get frustum angle
         cam_token = sample_record['data']['CAM_FRONT']
