@@ -138,6 +138,8 @@ def transform_box_from_world_to_flat_sensor_coordinates(first_train_sample_box: 
 
     # rotate around z-axis
     sample_box.rotate(Quaternion(scalar=np.cos(angz / 2), vector=[0, 0, np.sin(angz / 2)]))
+    # rotate around x-axis (by 90 degrees)
+    angx = 90
     sample_box.rotate(Quaternion(scalar=np.cos(angx / 2), vector=[np.sin(angx / 2), 0, 0]))
 
     return sample_box
@@ -693,8 +695,7 @@ def prepare_frustum_data(num_entries_to_get: int, output_filename: str):
 
         # bouding box is now in camera coordinate
         # Note that heading angle should be in flat camera coordinate
-        bounding_box_flat_sensor_coord=transform_box_from_world_to_flat_sensor_coordinates(bounding_box,camera_token)
-        heading_angle = -(float(bounding_box_flat_sensor_coord.orientation.angle)-np.pi/2) # convert euler angle to yaw angle
+        heading_angle = -bounding_box_sensor_coord.orientation.yaw_pitch_roll[0] #just approximation
 
         # get frustum angle
         cam_token = sample_record['data']['CAM_FRONT']
