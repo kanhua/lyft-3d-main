@@ -145,9 +145,9 @@ def transform_box_from_world_to_flat_sensor_coordinates(first_train_sample_box: 
     return sample_box
 
 
-def get_bounding_box_corners(box: Box, sample_data_token: str):
+def transform_bounding_box_to_sensor_coord_and_get_corners(box: Box, sample_data_token: str, frustum_pointnet_convention=False):
     """
-    Get the bounding box corners
+    Transform the bounding box to Get the bounding box corners
 
     :param box:
     :param sample_data_token: camera data token
@@ -164,10 +164,38 @@ def get_bounding_box_corners(box: Box, sample_data_token: str):
         cam_intrinsic_mtx = None
 
     box_corners_on_cam_coord = transformed_box.corners()
+
+    # Regarrange to conform Frustum-pointnet's convention
+
+    if frustum_pointnet_convention:
+        rearranged_idx = [0, 3, 7, 4, 1, 2, 6, 5]
+        box_corners_on_cam_coord = box_corners_on_cam_coord[:, rearranged_idx]
+
+        assert np.allclose((box_corners_on_cam_coord[:,0]+box_corners_on_cam_coord[:,6])/2,
+                       np.array(transformed_box.center))
+
     # For perspective transformation, the normalization should set to be True
     box_corners_on_image = view_points(box_corners_on_cam_coord, view=cam_intrinsic_mtx, normalize=True)
 
     return box_corners_on_image, box_corners_on_cam_coord
+
+
+def get_sensor_to_world_transform_matrix(sample_token, sensor_type):
+    sample_record = level5data.get('sample', sample_token)
+    sample_data_token = sample_record['data'][sensor_type]
+
+    sd_record = level5data.get("sample_data", sample_data_token)
+    cs_record = level5data.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
+    sensor_record = level5data.get("sensor", cs_record["sensor_token"])
+    pose_record = level5data.get("ego_pose", sd_record["ego_pose_token"])
+
+    sensor_to_ego_mtx = transform_matrix(translation=np.array(cs_record["translation"]),
+                                         rotation=Quaternion(cs_record["rotation"]))
+
+    ego_to_world_mtx = transform_matrix(translation=np.array(pose_record["translation"]),
+                                        rotation=Quaternion(pose_record["rotation"]))
+
+    return np.dot(ego_to_world_mtx, sensor_to_ego_mtx)
 
 
 def get_train_data_sample_token_and_box(idx, train_objects):
@@ -329,12 +357,13 @@ def get_sample_images(sample_token: str, ax=None):
             plt.close()
 
 
-def get_pc_in_image_fov(point_cloud_token: str, camera_type: str, bounding_box=None):
+def get_pc_in_image_fov(point_cloud_token: str, camera_type: str, bounding_box=None, clip_distance=2.0):
     """
 
     :param point_cloud_token:
     :param camera_type: available types: 'CAM_BACK', 'CAM_FRONT_ZOOMED','CAM_FRONT','CAM_FRONT_LEFT','CAM_FRONT_RIGHT','CAM_BACK_RIGHT','CAM_BACK_LEFT','LIDAR_TOP','LIDAR_FRONT_LEFT',
     :param Box:
+    :param clip_distance: minimum distance in positive z-axis in camera coordinate
     :return: mask index, filtered lidar points array,
     filetered lindar points array projected onto image plane, LidarPointCloud object transformed to camera coordinate, 2D image array
     """
@@ -349,12 +378,12 @@ def get_pc_in_image_fov(point_cloud_token: str, camera_type: str, bounding_box=N
 
     mask = mask_points(pc_2d_array, 0, img.size[0], ymin=0, ymax=img.size[1])
 
-    distance_mask = (lpc.points[2, :] > 0)
+    distance_mask = (lpc.points[2, :] > clip_distance)
 
     mask = np.logical_and(mask, distance_mask)
 
     if bounding_box is not None:
-        projected_corners, _ = get_bounding_box_corners(bounding_box, sample_data_token=cam_token)
+        projected_corners, _ = transform_bounding_box_to_sensor_coord_and_get_corners(bounding_box, sample_data_token=cam_token)
         xmin, xmax, ymin, ymax = get_2d_corners_from_projected_box_coordinates(projected_corners)
         box_mask = mask_points(pc_2d_array, xmin, xmax, ymin, ymax)
         mask = np.logical_and(mask, box_mask)
@@ -649,6 +678,46 @@ def plot_cam_top_view(lpc_array_in_cam_coord, bounding_box_sensor_coord):
     plt.show()
 
 
+def get_box_yaw_angle_in_camera_coords(box: Box):
+    """
+    Calculate the heading angle, using the convention in KITTI labels.
+
+    :param box: bouding box
+    :return:
+    """
+
+    box_corners = box.corners()
+    v = box_corners[:, 0] - box_corners[:, 4]
+    heading_angle = np.arctan2(-v[2], v[0])
+    return heading_angle
+
+
+def get_box_yaw_angle_in_world_coords(box: Box):
+    """
+    Calculate the heading angle, using world coordinates.
+
+    :param box: bouding box
+    :return:
+    """
+
+    box_corners = box.corners()
+    v = box_corners[:, 0] - box_corners[:, 4]
+    heading_angle = np.arctan2(v[1], v[0])
+    return heading_angle
+
+def get_box_corners_yaw_angle_in_world_coords(box_corners):
+    """
+    Calculate the heading angle, using world coordinates.
+
+    :param box: bouding box
+    :return:
+    """
+    assert box_corners.shape==(3,8)
+    v = box_corners[:, 0] - box_corners[:, 4]
+    heading_angle = np.arctan2(v[1], v[0])
+    return heading_angle
+
+
 def prepare_frustum_data(num_entries_to_get: int, output_filename: str):
     train_df = parse_train_csv()
 
@@ -695,12 +764,14 @@ def prepare_frustum_data(num_entries_to_get: int, output_filename: str):
 
         # bouding box is now in camera coordinate
         # Note that heading angle should be in flat camera coordinate
-        heading_angle = -bounding_box_sensor_coord.orientation.yaw_pitch_roll[0] #just approximation
+        heading_angle = get_box_yaw_angle_in_camera_coords(bounding_box_sensor_coord)
 
         # get frustum angle
         cam_token = sample_record['data']['CAM_FRONT']
 
-        box_corners_on_image, box_corners_on_camera_coord = get_bounding_box_corners(bounding_box, cam_token)
+        box_corners_on_image, box_corners_on_camera_coord = transform_bounding_box_to_sensor_coord_and_get_corners(bounding_box,
+                                                                                                                   camera_token,
+                                                                                                                   frustum_pointnet_convention=True)
 
         box3d_pts_3d = np.transpose(box_corners_on_camera_coord)
 
@@ -763,4 +834,4 @@ def prepare_frustum_data(num_entries_to_get: int, output_filename: str):
 
 if __name__ == "__main__":
     output_file = os.path.join("./artifact/lyft_val.pickle")
-    prepare_frustum_data(1024, output_file)
+    prepare_frustum_data(64, output_file)
