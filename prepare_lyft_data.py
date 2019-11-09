@@ -145,7 +145,8 @@ def transform_box_from_world_to_flat_sensor_coordinates(first_train_sample_box: 
     return sample_box
 
 
-def transform_bounding_box_to_sensor_coord_and_get_corners(box: Box, sample_data_token: str, frustum_pointnet_convention=False):
+def transform_bounding_box_to_sensor_coord_and_get_corners(box: Box, sample_data_token: str,
+                                                           frustum_pointnet_convention=False):
     """
     Transform the bounding box to Get the bounding box corners
 
@@ -171,8 +172,8 @@ def transform_bounding_box_to_sensor_coord_and_get_corners(box: Box, sample_data
         rearranged_idx = [0, 3, 7, 4, 1, 2, 6, 5]
         box_corners_on_cam_coord = box_corners_on_cam_coord[:, rearranged_idx]
 
-        assert np.allclose((box_corners_on_cam_coord[:,0]+box_corners_on_cam_coord[:,6])/2,
-                       np.array(transformed_box.center))
+        assert np.allclose((box_corners_on_cam_coord[:, 0] + box_corners_on_cam_coord[:, 6]) / 2,
+                           np.array(transformed_box.center))
 
     # For perspective transformation, the normalization should set to be True
     box_corners_on_image = view_points(box_corners_on_cam_coord, view=cam_intrinsic_mtx, normalize=True)
@@ -180,10 +181,7 @@ def transform_bounding_box_to_sensor_coord_and_get_corners(box: Box, sample_data
     return box_corners_on_image, box_corners_on_cam_coord
 
 
-def get_sensor_to_world_transform_matrix(sample_token, sensor_type):
-    sample_record = level5data.get('sample', sample_token)
-    sample_data_token = sample_record['data'][sensor_type]
-
+def get_sensor_to_world_transform_matrix_from_sample_data_token(sample_data_token):
     sd_record = level5data.get("sample_data", sample_data_token)
     cs_record = level5data.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
     sensor_record = level5data.get("sensor", cs_record["sensor_token"])
@@ -196,6 +194,13 @@ def get_sensor_to_world_transform_matrix(sample_token, sensor_type):
                                         rotation=Quaternion(pose_record["rotation"]))
 
     return np.dot(ego_to_world_mtx, sensor_to_ego_mtx)
+
+
+def get_sensor_to_world_transform_matrix(sample_token, sensor_type):
+    sample_record = level5data.get('sample', sample_token)
+    sample_data_token = sample_record['data'][sensor_type]
+
+    return get_sensor_to_world_transform_matrix_from_sample_data_token(sample_data_token)
 
 
 def get_train_data_sample_token_and_box(idx, train_objects):
@@ -383,7 +388,8 @@ def get_pc_in_image_fov(point_cloud_token: str, camera_type: str, bounding_box=N
     mask = np.logical_and(mask, distance_mask)
 
     if bounding_box is not None:
-        projected_corners, _ = transform_bounding_box_to_sensor_coord_and_get_corners(bounding_box, sample_data_token=cam_token)
+        projected_corners, _ = transform_bounding_box_to_sensor_coord_and_get_corners(bounding_box,
+                                                                                      sample_data_token=cam_token)
         xmin, xmax, ymin, ymax = get_2d_corners_from_projected_box_coordinates(projected_corners)
         box_mask = mask_points(pc_2d_array, xmin, xmax, ymin, ymax)
         mask = np.logical_and(mask, box_mask)
@@ -705,6 +711,7 @@ def get_box_yaw_angle_in_world_coords(box: Box):
     heading_angle = np.arctan2(v[1], v[0])
     return heading_angle
 
+
 def get_box_corners_yaw_angle_in_world_coords(box_corners):
     """
     Calculate the heading angle, using world coordinates.
@@ -712,10 +719,37 @@ def get_box_corners_yaw_angle_in_world_coords(box_corners):
     :param box: bouding box
     :return:
     """
-    assert box_corners.shape==(3,8)
+    assert box_corners.shape == (3, 8)
     v = box_corners[:, 0] - box_corners[:, 4]
     heading_angle = np.arctan2(v[1], v[0])
     return heading_angle
+
+
+def convert_box_to_world_coord(box: Box, sample_token, sensor_type):
+    sample_box = box.copy()
+    sample_record = level5data.get('sample', sample_token)
+    sample_data_token = sample_record['data'][sensor_type]
+
+    converted_sample_box = convert_box_to_world_coord_with_sample_data_token(sample_box, sample_data_token)
+
+    return converted_sample_box
+
+
+def convert_box_to_world_coord_with_sample_data_token(input_sample_box, sample_data_token):
+    sample_box = input_sample_box.copy()
+
+    sd_record = level5data.get("sample_data", sample_data_token)
+    cs_record = level5data.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
+    sensor_record = level5data.get("sensor", cs_record["sensor_token"])
+    pose_record = level5data.get("ego_pose", sd_record["ego_pose_token"])
+    #  Move box from sensor to vehicle ego coord system
+    sample_box.rotate(Quaternion(cs_record["rotation"]))
+    sample_box.translate(np.array(cs_record["translation"]))
+    # Move box from ego vehicle to world coord system
+    sample_box.rotate(Quaternion(pose_record["rotation"]))
+    sample_box.translate(np.array(pose_record["translation"]))
+
+    return sample_box
 
 
 def prepare_frustum_data(num_entries_to_get: int, output_filename: str):
@@ -769,9 +803,10 @@ def prepare_frustum_data(num_entries_to_get: int, output_filename: str):
         # get frustum angle
         cam_token = sample_record['data']['CAM_FRONT']
 
-        box_corners_on_image, box_corners_on_camera_coord = transform_bounding_box_to_sensor_coord_and_get_corners(bounding_box,
-                                                                                                                   camera_token,
-                                                                                                                   frustum_pointnet_convention=True)
+        box_corners_on_image, box_corners_on_camera_coord = transform_bounding_box_to_sensor_coord_and_get_corners(
+            bounding_box,
+            camera_token,
+            frustum_pointnet_convention=True)
 
         box3d_pts_3d = np.transpose(box_corners_on_camera_coord)
 
