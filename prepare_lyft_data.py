@@ -367,7 +367,7 @@ def get_pc_in_image_fov(point_cloud_token: str, camera_type: str, bounding_box=N
 
     :param point_cloud_token:
     :param camera_type: available types: 'CAM_BACK', 'CAM_FRONT_ZOOMED','CAM_FRONT','CAM_FRONT_LEFT','CAM_FRONT_RIGHT','CAM_BACK_RIGHT','CAM_BACK_LEFT','LIDAR_TOP','LIDAR_FRONT_LEFT',
-    :param Box:
+    :param Box:a ground truth Box class or np.ndarray([xmin,xmax,ymin,ymax])
     :param clip_distance: minimum distance in positive z-axis in camera coordinate
     :return: mask index, filtered lidar points array,
     filetered lindar points array projected onto image plane, LidarPointCloud object transformed to camera coordinate, 2D image array
@@ -387,20 +387,19 @@ def get_pc_in_image_fov(point_cloud_token: str, camera_type: str, bounding_box=N
 
     mask = np.logical_and(mask, distance_mask)
 
-    if bounding_box is not None:
+    if type(bounding_box) == Box:
         projected_corners, _ = transform_bounding_box_to_sensor_coord_and_get_corners(bounding_box,
                                                                                       sample_data_token=cam_token)
         xmin, xmax, ymin, ymax = get_2d_corners_from_projected_box_coordinates(projected_corners)
         box_mask = mask_points(pc_2d_array, xmin, xmax, ymin, ymax)
         mask = np.logical_and(mask, box_mask)
+    elif type(bounding_box) == np.ndarray:
+        assert len(bounding_box) == 4
+        xmin, xmax, ymin, ymax = bounding_box
+        box_mask = mask_points(pc_2d_array, xmin, xmax, ymin, ymax)
+        mask = np.logical_and(mask, box_mask)
 
     return mask, lpc.points[:, mask], pc_2d_array[:, mask], lpc, img
-
-    # Get xmax,xmin,ymax,ymin of the box projected on a image (back, front, etc.)
-
-    # Project point cloud on to the image
-
-    # select the indicies that are within the projected boundary
 
 
 def extract_other_sensor_token(camera_type, point_cloud_token):
@@ -771,63 +770,24 @@ def prepare_frustum_data(num_entries_to_get: int, output_filename: str):
 
     data_idx = 0
     num_entries_to_obtained = 0
+
+    object_of_interest_name = ['car', 'pedestrian', 'cyclist']
+
     while num_entries_to_obtained < num_entries_to_get:
         sample_token, bounding_box = get_train_data_sample_token_and_box(data_idx, train_df)
-
-        object_of_interest_name = ['car', 'pedestrian', 'cyclist']
 
         sample_record = level5data.get('sample', sample_token)
 
         lidar_data_token = sample_record['data']['LIDAR_TOP']
-
-        w, l, h = bounding_box.wlh
-        lwh = np.array([l, w, h])
-
-        dummy_bounding_box = bounding_box.copy()
-        mask, point_clouds_in_box, _, _, image = get_pc_in_image_fov(lidar_data_token, 'CAM_FRONT',
-                                                                     bounding_box)
-        assert dummy_bounding_box == bounding_box
-
         camera_token = extract_other_sensor_token('CAM_FRONT', lidar_data_token)
-        bounding_box_sensor_coord = transform_box_from_world_to_sensor_coordinates(bounding_box, camera_token)
 
-        _, label = extract_pc_in_box3d(point_clouds_in_box[0:3, :], bounding_box_sensor_coord.corners())
-        # plot_cam_top_view(point_clouds_in_box[0:3,label],bounding_box_sensor_coord)
-        # assert np.sum(label) <= point_clouds_in_box.shape[1]
-        # assert np.any(label)
-
-        # bouding box is now in camera coordinate
-        # Note that heading angle should be in flat camera coordinate
-        heading_angle = get_box_yaw_angle_in_camera_coords(bounding_box_sensor_coord)
-
-        # get frustum angle
-        cam_token = sample_record['data']['CAM_FRONT']
-
-        box_corners_on_image, box_corners_on_camera_coord = transform_bounding_box_to_sensor_coord_and_get_corners(
-            bounding_box,
-            camera_token,
-            frustum_pointnet_convention=True)
-
-        box3d_pts_3d = np.transpose(box_corners_on_camera_coord)
-
-        xmin, xmax, ymin, ymax = get_2d_corners_from_projected_box_coordinates(box_corners_on_image)
-
-        random_depth = 20
-        image_center = np.array([[(xmax + xmin) / 2, (ymax + ymin) / 2, random_depth]]).T
-
-        image_center_in_cam_coord = transform_image_to_cam_coordinate(image_center, cam_token)
-
-        assert image_center_in_cam_coord.shape[1] == 1
-        frustum_angle = -np.arctan2(image_center_in_cam_coord[2, 0], image_center_in_cam_coord[0, 0])
-
-        # TODO: note that the convention of matrix is different in frustum-pointnet
-        point_clouds_in_box[3, :] = 0.2
-        point_clouds_in_box = np.transpose(point_clouds_in_box)
+        box3d_pts_3d, box_2d_pts, frustum_angle, heading_angle, label, point_clouds_in_box, size_lwh = get_single_frustm_pointnet_input(
+            bounding_box, camera_token, lidar_data_token)
 
         if point_clouds_in_box.shape[0] > 0 and (bounding_box.name in object_of_interest_name) and np.sum(
                 label) > pt_thres:
             id_list.append(data_idx)
-            box2d_list.append(np.array([xmin, ymin, xmax, ymax]))
+            box2d_list.append(box_2d_pts)
             assert box3d_pts_3d.shape == (8, 3)
             box3d_list.append(box3d_pts_3d)  # 3D bounding box projected onto image plane
             assert point_clouds_in_box.shape[1] == 4
@@ -837,7 +797,7 @@ def prepare_frustum_data(num_entries_to_get: int, output_filename: str):
             label_list.append(label)
             type_list.append(bounding_box.name)
             heading_list.append(heading_angle)
-            box3d_size_list.append(lwh)
+            box3d_size_list.append(size_lwh)
             frustum_angle_list.append(frustum_angle)
             num_entries_to_obtained += 1
             print(num_entries_to_obtained)
@@ -867,6 +827,76 @@ def prepare_frustum_data(num_entries_to_get: int, output_filename: str):
         pickle.dump(frustum_angle_list, fp)
 
 
+def get_single_frustm_pointnet_input(bounding_box, camera_token, lidar_data_token):
+    w, l, h = bounding_box.wlh
+    size_lwh = np.array([l, w, h])
+    dummy_bounding_box = bounding_box.copy()
+    mask, point_clouds_in_box, _, _, image = get_pc_in_image_fov(lidar_data_token, 'CAM_FRONT',
+                                                                 bounding_box)
+    assert dummy_bounding_box == bounding_box
+    bounding_box_sensor_coord = transform_box_from_world_to_sensor_coordinates(bounding_box, camera_token)
+    _, label = extract_pc_in_box3d(point_clouds_in_box[0:3, :], bounding_box_sensor_coord.corners())
+    # plot_cam_top_view(point_clouds_in_box[0:3,label],bounding_box_sensor_coord)
+    # assert np.sum(label) <= point_clouds_in_box.shape[1]
+    # assert np.any(label)
+    # bouding box is now in camera coordinate
+    # Note that heading angle should be in flat camera coordinate
+    heading_angle = get_box_yaw_angle_in_camera_coords(bounding_box_sensor_coord)
+    # get frustum angle
+    box_corners_on_image, box_corners_on_camera_coord = transform_bounding_box_to_sensor_coord_and_get_corners(
+        bounding_box,
+        camera_token,
+        frustum_pointnet_convention=True)
+    box3d_pts_3d = np.transpose(box_corners_on_camera_coord)
+    xmin, xmax, ymin, ymax = get_2d_corners_from_projected_box_coordinates(box_corners_on_image)
+    frustum_angle = get_frustum_angle(camera_token, xmax, xmin, ymax, ymin)
+    estimate_point_cloud_intensity(point_clouds_in_box)
+    point_clouds_in_box = np.transpose(point_clouds_in_box)
+    box_2d_pts = np.array([xmin, ymin, xmax, ymax])
+    return box3d_pts_3d, box_2d_pts, frustum_angle, heading_angle, label, point_clouds_in_box, size_lwh
+
+
+def get_frustum_angle(cam_token, xmax, xmin, ymax, ymin):
+    random_depth = 20
+    image_center = np.array([[(xmax + xmin) / 2, (ymax + ymin) / 2, random_depth]]).T
+    image_center_in_cam_coord = transform_image_to_cam_coordinate(image_center, cam_token)
+    assert image_center_in_cam_coord.shape[1] == 1
+    frustum_angle = -np.arctan2(image_center_in_cam_coord[2, 0], image_center_in_cam_coord[0, 0])
+    return frustum_angle
+
+
+def estimate_point_cloud_intensity(point_clouds_in_box):
+    assert point_clouds_in_box.shape[0] == 4
+    point_clouds_in_box[3, :] = 0.2
+
+
+def select_annotation_boxes(sample_token, box_vis_level: BoxVisibility = BoxVisibility.ALL,
+                            camera_type=['CAM_FRONT'])->(str,str,Box):
+    """
+    Select annotations that is a camera image defined by box_vis_level
+
+
+    :param sample_token:
+    :param box_vis_level:BoxVisbility.ALL or BoxVisibility.ANY
+    :param camera_type: a list of camera that the token should be selected from
+    :return: yield (sample_token,cam_token, Box)
+    """
+    sample_record = level5data.get('sample', sample_token)
+
+    cams = [key for key in sample_record["data"].keys() if "CAM" in key]
+    cams = [cam for cam in cams if cam in camera_type]
+    for ann_token in sample_record['anns']:
+        for cam in cams:
+            cam_token = sample_record["data"][cam]
+            _, boxes, cam_intrinsic = level5data.get_sample_data(
+                cam_token, box_vis_level=box_vis_level, selected_anntokens=[ann_token]
+            )
+            if len(boxes) > 0:
+                assert len(boxes)==1
+                yield sample_token, cam_token, boxes[0]
+
+
+
 if __name__ == "__main__":
-    output_file = os.path.join("./artifact/lyft_val.pickle")
+    output_file = os.path.join("./artifact/lyft_val_2.pickle")
     prepare_frustum_data(64, output_file)
