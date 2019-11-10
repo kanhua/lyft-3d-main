@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import os
 import pickle
-from typing import Tuple
+from typing import Tuple, List
 from PIL import Image
 
 from lyft_dataset_sdk.lyftdataset import LyftDataset, LyftDatasetExplorer
@@ -751,7 +751,7 @@ def convert_box_to_world_coord_with_sample_data_token(input_sample_box, sample_d
     return sample_box
 
 
-def prepare_frustum_data(num_entries_to_get: int, output_filename: str):
+def prepare_frustum_data_from_traincsv(num_entries_to_get: int, output_filename: str):
     train_df = parse_train_csv()
 
     pt_thres = 100  # only selects the boxes with points larger than 100 in the 3D ground truth box,
@@ -871,7 +871,7 @@ def estimate_point_cloud_intensity(point_clouds_in_box):
 
 
 def select_annotation_boxes(sample_token, box_vis_level: BoxVisibility = BoxVisibility.ALL,
-                            camera_type=['CAM_FRONT'])->(str,str,Box):
+                            camera_type=['CAM_FRONT']) -> (str, str, Box):
     """
     Select annotations that is a camera image defined by box_vis_level
 
@@ -888,15 +888,116 @@ def select_annotation_boxes(sample_token, box_vis_level: BoxVisibility = BoxVisi
     for ann_token in sample_record['anns']:
         for cam in cams:
             cam_token = sample_record["data"][cam]
-            _, boxes, cam_intrinsic = level5data.get_sample_data(
+            _, boxes_in_sensor_coord, cam_intrinsic = level5data.get_sample_data(
                 cam_token, box_vis_level=box_vis_level, selected_anntokens=[ann_token]
             )
-            if len(boxes) > 0:
-                assert len(boxes)==1
-                yield sample_token, cam_token, boxes[0]
+            if len(boxes_in_sensor_coord) > 0:
+                assert len(boxes_in_sensor_coord) == 1
+                box_in_world_coord = level5data.get_box(boxes_in_sensor_coord[0].token)
+                yield sample_token, cam_token, box_in_world_coord
 
+
+def get_all_boxes_in_single_scene(scene_number):
+    results = []
+    start_sample_token = level5data.scene[scene_number]['first_sample_token']
+    sample_token = start_sample_token
+    while sample_token != "":
+        sample_record = level5data.get('sample', sample_token)
+        for tks in select_annotation_boxes(sample_token):
+            results.append(tks)
+
+        next_sample_token = sample_record['next']
+        sample_token = next_sample_token
+
+    return results
+
+
+def get_all_boxes_in_scenes(scene_numbers: List):
+    results = []
+    for scene_num in scene_numbers:
+        sub_results = get_all_boxes_in_single_scene(scene_num)
+        results.extend(sub_results)
+    return results
+
+
+def prepare_frustum_data_from_scenes(num_entries_to_get: int, output_filename: str):
+    pt_thres = 100  # only selects the boxes with points larger than 100 in the 3D ground truth box,
+    # because the ground truth 3D box may not be covered by the field of view of camera
+
+    id_list = []  # int number
+    box2d_list = []  # [xmin,ymin,xmax,ymax]
+    box3d_list = []  # (8,3) array in rect camera coord
+    input_list = []  # channel number = 4, xyz,intensity in rect camera coord
+    label_list = []  # 1 for roi object, 0 for clutter
+    type_list = []  # string e.g. Car
+    heading_list = []  # ry (along y-axis in rect camera coord) radius of
+    # (cont.) clockwise angle from positive x axis in velo coord.
+    box3d_size_list = []  # array of l,w,h
+    frustum_angle_list = []  # angle of 2d box center from pos x-axis
+
+    data_idx = 0
+    num_entries_to_obtained = 0
+
+    object_of_interest_name = ['car', 'pedestrian', 'cyclist']
+
+    results = get_all_boxes_in_scenes([0, 1, 2, 3, 4, 5, 6, 7])
+
+    while num_entries_to_obtained < num_entries_to_get:
+
+        result = results[data_idx]
+        sample_token, camera_token, bounding_box = result
+
+        sample_record = level5data.get('sample', sample_token)
+
+        lidar_data_token = sample_record['data']['LIDAR_TOP']
+
+        box3d_pts_3d, box_2d_pts, frustum_angle, heading_angle, label, point_clouds_in_box, size_lwh = get_single_frustm_pointnet_input(
+            bounding_box, camera_token, lidar_data_token)
+
+        if point_clouds_in_box.shape[0] > 0 and (bounding_box.name in object_of_interest_name) and np.sum(
+                label) > pt_thres:
+            id_list.append(data_idx)
+            box2d_list.append(box_2d_pts)
+            assert box3d_pts_3d.shape == (8, 3)
+            box3d_list.append(box3d_pts_3d)  # 3D bounding box projected onto image plane
+            assert point_clouds_in_box.shape[1] == 4
+            # assert point_clouds_in_box.shape[0] >0
+            print(point_clouds_in_box.shape)
+            input_list.append(point_clouds_in_box)
+            label_list.append(label)
+            type_list.append(bounding_box.name)
+            heading_list.append(heading_angle)
+            box3d_size_list.append(size_lwh)
+            frustum_angle_list.append(frustum_angle)
+            num_entries_to_obtained += 1
+            print(num_entries_to_obtained)
+
+        data_idx += 1
+
+    # check that everything is implemented
+    assert len(id_list) > 0
+    assert len(box2d_list) > 0
+    assert len(box3d_list) > 0
+    assert len(input_list) > 0
+    assert len(label_list) > 0
+    assert len(type_list) > 0
+    assert len(heading_list) > 0
+    assert len(box3d_size_list) > 0
+    assert len(frustum_angle_list) > 0
+
+    with open(output_filename, 'wb') as fp:
+        pickle.dump(id_list, fp)
+        pickle.dump(box2d_list, fp)
+        pickle.dump(box3d_list, fp)
+        pickle.dump(input_list, fp)
+        pickle.dump(label_list, fp)
+        pickle.dump(type_list, fp)
+        pickle.dump(heading_list, fp)
+        pickle.dump(box3d_size_list, fp)
+        pickle.dump(frustum_angle_list, fp)
 
 
 if __name__ == "__main__":
-    output_file = os.path.join("./artifact/lyft_val_2.pickle")
-    prepare_frustum_data(64, output_file)
+    output_file = os.path.join("./artifact/lyft_val_3.pickle")
+    # prepare_frustum_data_from_traincsv(64, output_file)
+    prepare_frustum_data_from_scenes(64, output_file)
