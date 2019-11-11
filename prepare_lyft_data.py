@@ -1066,7 +1066,7 @@ def prepare_frustum_data_from_scenes(num_entries_to_get: int,
             if not from_rgb_detection:
                 type_list.append(bounding_box.name)
             else:
-                type_list.append(object_of_interest_name[class_idx])
+                type_list.append(object_of_interest_name[int(class_idx)])
 
             frustum_angle_list.append(frustum_angle)
             sample_token_list.append(sample_token)

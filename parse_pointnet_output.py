@@ -26,10 +26,11 @@ def rotate_pc_along_y(pc, rot_angle):
     return npc
 
 
-def read_frustum_pointnet_output(ldt: LyftDataset, inference_pickle_file, token_pickle_file):
+def read_frustum_pointnet_output(ldt: LyftDataset, inference_pickle_file, token_pickle_file,from_rgb_detection:bool):
     with open(inference_pickle_file, 'rb') as fp:
         ps_list = pickle.load(fp)
-        seg_list = pickle.load(fp)
+        if not from_rgb_detection:
+            seg_list = pickle.load(fp)
         segp_list = pickle.load(fp)
         center_list = pickle.load(fp)
         heading_cls_list = pickle.load(fp)
@@ -38,29 +39,34 @@ def read_frustum_pointnet_output(ldt: LyftDataset, inference_pickle_file, token_
         size_res_list = pickle.load(fp)
         rot_angle_list = pickle.load(fp)
         score_list = pickle.load(fp)
+        if from_rgb_detection:
+            onehot_list=pickle.load(fp)
     with open(token_pickle_file, 'rb') as fp:
         sample_token_list = pickle.load(fp)
         annotation_token_list = pickle.load(fp)
         camera_data_token_list = pickle.load(fp)
         type_list = pickle.load(fp)
         ldt.get('sample', sample_token_list[0])
-        ldt.get('sample_annotation', annotation_token_list[0])
+        if annotation_token_list:
+            ldt.get('sample_annotation', annotation_token_list[0])
 
     assert len(sample_token_list) == len(ps_list)
 
     boxes = []
     gt_boxes = []
     for data_idx in range(len(ps_list)):
-        inferred_box = get_box_from_inference(heading_cls=heading_cls_list[data_idx],
+        inferred_box = get_box_from_inference(lyftd=ldt,heading_cls=heading_cls_list[data_idx],
                                               heading_res=heading_res_list[data_idx],
                                               rot_angle=rot_angle_list[data_idx],
                                               size_cls=size_cls_list[data_idx],
                                               size_res=size_res_list[data_idx],
                                               center_coord=center_list[data_idx],
-                                              sample_data_token=camera_data_token_list[data_idx])
+                                              sample_data_token=camera_data_token_list[data_idx],
+                                              score=score_list[data_idx])
         inferred_box.name = type_list[data_idx]
         boxes.append(inferred_box)
-        gt_boxes.append(ldt.get_box(annotation_token_list[data_idx]))
+        if not from_rgb_detection:
+            gt_boxes.append(ldt.get_box(annotation_token_list[data_idx]))
 
     return boxes, gt_boxes, sample_token_list
 
@@ -104,8 +110,8 @@ def get_center_in_world_coord(center_in_sensor_coord, sample_data_token: str):
     return np.dot(mtx, center_in_sensor_coord_h).ravel()[0:3]
 
 
-def get_box_from_inference(heading_cls, heading_res, rot_angle,
-                           size_cls, size_res, center_coord, sample_data_token) -> Box:
+def get_box_from_inference(lyftd:LyftDataset,heading_cls, heading_res, rot_angle,
+                           size_cls, size_res, center_coord, sample_data_token,score) -> Box:
     heading_angle = get_heading_angle(heading_cls, heading_res, rot_angle)
     size = get_size(size_cls, size_res)
     center_sensor_coord = get_center_in_sensor_coord(center_coord=center_coord, rot_angle=rot_angle)
@@ -120,9 +126,9 @@ def get_box_from_inference(heading_cls, heading_res, rot_angle,
     first_rot = Quaternion(axis=[1, 0, 0], angle=np.pi / 2)
     second_rot = Quaternion(axis=[0, -1, 0], angle=-heading_angle)
     box_in_sensor_coord = Box(center=center_sensor_coord, size=[w, l, h],
-                              orientation=second_rot * first_rot)
+                              orientation=second_rot * first_rot,score=score)
 
-    box_in_world_coord = convert_box_to_world_coord_with_sample_data_token(box_in_sensor_coord, sample_data_token)
+    box_in_world_coord = convert_box_to_world_coord_with_sample_data_token(box_in_sensor_coord, sample_data_token,lyftd)
 
     # assert np.abs(box_in_world_coord.orientation.axis[0]) <= 0.02
     # assert np.abs(box_in_world_coord.orientation.axis[1]) <= 0.02
