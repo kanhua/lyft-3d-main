@@ -44,7 +44,7 @@ def write_output_csv(pred_boxes: List[Box], sample_token_list, output_csv_file: 
             prev_sample_token = sample_token
 
 
-inference_pickle_file = "/Users/kanhua/Downloads/frustum-pointnets/train/test_results.pickle"
+inference_pickle_file = "test_results.pickle"
 token_pickle_file = "/Users/kanhua/Dropbox/Programming/lyft-3d-main/artifact/lyft_val_token_from_rgb.pickle"
 pred_csv_file = "./test_pred.csv"
 FROM_RGB_DETECTION = True
