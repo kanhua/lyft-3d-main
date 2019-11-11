@@ -781,7 +781,7 @@ def prepare_frustum_data_from_traincsv(num_entries_to_get: int, output_filename:
         lidar_data_token = sample_record['data']['LIDAR_TOP']
         camera_token = extract_other_sensor_token('CAM_FRONT', lidar_data_token)
 
-        box3d_pts_3d, box_2d_pts, frustum_angle, heading_angle, label, point_clouds_in_box, size_lwh = get_single_frustm_pointnet_input(
+        box3d_pts_3d, box_2d_pts, frustum_angle, heading_angle, label, point_clouds_in_box, size_lwh = get_single_frustum_pointnet_input(
             bounding_box, camera_token, lidar_data_token)
 
         if point_clouds_in_box.shape[0] > 0 and (bounding_box.name in object_of_interest_name) and np.sum(
@@ -827,33 +827,50 @@ def prepare_frustum_data_from_traincsv(num_entries_to_get: int, output_filename:
         pickle.dump(frustum_angle_list, fp)
 
 
-def get_single_frustm_pointnet_input(bounding_box, camera_token, lidar_data_token):
-    w, l, h = bounding_box.wlh
-    size_lwh = np.array([l, w, h])
+def get_single_frustum_pointnet_input(bounding_box, camera_token, lidar_data_token, from_rgb_detection=False):
+    if from_rgb_detection:
+        assert type(bounding_box) == np.ndarray
+        assert bounding_box.shape[0] == 4
+    else:
+        assert type(bounding_box) == Box
+
+    if not from_rgb_detection:
+        w, l, h = bounding_box.wlh
+        size_lwh = np.array([l, w, h])
     dummy_bounding_box = bounding_box.copy()
+
     mask, point_clouds_in_box, _, _, image = get_pc_in_image_fov(lidar_data_token, 'CAM_FRONT',
                                                                  bounding_box)
     assert dummy_bounding_box == bounding_box
-    bounding_box_sensor_coord = transform_box_from_world_to_sensor_coordinates(bounding_box, camera_token)
-    _, label = extract_pc_in_box3d(point_clouds_in_box[0:3, :], bounding_box_sensor_coord.corners())
-    # plot_cam_top_view(point_clouds_in_box[0:3,label],bounding_box_sensor_coord)
-    # assert np.sum(label) <= point_clouds_in_box.shape[1]
-    # assert np.any(label)
-    # bouding box is now in camera coordinate
-    # Note that heading angle should be in flat camera coordinate
-    heading_angle = get_box_yaw_angle_in_camera_coords(bounding_box_sensor_coord)
-    # get frustum angle
-    box_corners_on_image, box_corners_on_camera_coord = transform_bounding_box_to_sensor_coord_and_get_corners(
-        bounding_box,
-        camera_token,
-        frustum_pointnet_convention=True)
-    box3d_pts_3d = np.transpose(box_corners_on_camera_coord)
-    xmin, xmax, ymin, ymax = get_2d_corners_from_projected_box_coordinates(box_corners_on_image)
+
+
+    if not from_rgb_detection:
+        bounding_box_sensor_coord = transform_box_from_world_to_sensor_coordinates(bounding_box, camera_token)
+        _, label = extract_pc_in_box3d(point_clouds_in_box[0:3, :], bounding_box_sensor_coord.corners())
+        # plot_cam_top_view(point_clouds_in_box[0:3,label],bounding_box_sensor_coord)
+        # assert np.sum(label) <= point_clouds_in_box.shape[1]
+        # assert np.any(label)
+        # bouding box is now in camera coordinate
+        # Note that heading angle should be in flat camera coordinate
+        heading_angle = get_box_yaw_angle_in_camera_coords(bounding_box_sensor_coord)
+        # get frustum angle
+        box_corners_on_image, box_corners_on_camera_coord = transform_bounding_box_to_sensor_coord_and_get_corners(
+            bounding_box,
+            camera_token,
+            frustum_pointnet_convention=True)
+        box3d_pts_3d = np.transpose(box_corners_on_camera_coord)
+        xmin, xmax, ymin, ymax = get_2d_corners_from_projected_box_coordinates(box_corners_on_image)
+    else:
+        xmin,xmax,ymin,ymax=bounding_box
     frustum_angle = get_frustum_angle(camera_token, xmax, xmin, ymax, ymin)
     estimate_point_cloud_intensity(point_clouds_in_box)
     point_clouds_in_box = np.transpose(point_clouds_in_box)
     box_2d_pts = np.array([xmin, ymin, xmax, ymax])
-    return box3d_pts_3d, box_2d_pts, frustum_angle, heading_angle, label, point_clouds_in_box, size_lwh
+
+    if not from_rgb_detection:
+        return box3d_pts_3d, box_2d_pts, frustum_angle, heading_angle, label, point_clouds_in_box, size_lwh
+    else:
+        return box_2d_pts,frustum_angle,point_clouds_in_box
 
 
 def get_frustum_angle(cam_token, xmax, xmin, ymax, ymin):
@@ -920,7 +937,10 @@ def get_all_boxes_in_scenes(scene_numbers: List):
     return results
 
 
-def prepare_frustum_data_from_scenes(num_entries_to_get: int, output_filename: str):
+def prepare_frustum_data_from_scenes(num_entries_to_get: int,
+                                     output_filename: str,
+                                     token_filename: str,
+                                     scenes=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]):
     pt_thres = 100  # only selects the boxes with points larger than 100 in the 3D ground truth box,
     # because the ground truth 3D box may not be covered by the field of view of camera
 
@@ -934,13 +954,16 @@ def prepare_frustum_data_from_scenes(num_entries_to_get: int, output_filename: s
     # (cont.) clockwise angle from positive x axis in velo coord.
     box3d_size_list = []  # array of l,w,h
     frustum_angle_list = []  # angle of 2d box center from pos x-axis
+    sample_token_list = []
+    annotation_token_list = []
+    camera_data_token_list = []
 
     data_idx = 0
     num_entries_to_obtained = 0
 
     object_of_interest_name = ['car', 'pedestrian', 'cyclist']
 
-    results = get_all_boxes_in_scenes([0, 1, 2, 3, 4, 5, 6, 7])
+    results = get_all_boxes_in_scenes(scenes)
 
     while num_entries_to_obtained < num_entries_to_get:
 
@@ -951,7 +974,7 @@ def prepare_frustum_data_from_scenes(num_entries_to_get: int, output_filename: s
 
         lidar_data_token = sample_record['data']['LIDAR_TOP']
 
-        box3d_pts_3d, box_2d_pts, frustum_angle, heading_angle, label, point_clouds_in_box, size_lwh = get_single_frustm_pointnet_input(
+        box3d_pts_3d, box_2d_pts, frustum_angle, heading_angle, label, point_clouds_in_box, size_lwh = get_single_frustum_pointnet_input(
             bounding_box, camera_token, lidar_data_token)
 
         if point_clouds_in_box.shape[0] > 0 and (bounding_box.name in object_of_interest_name) and np.sum(
@@ -969,6 +992,10 @@ def prepare_frustum_data_from_scenes(num_entries_to_get: int, output_filename: s
             heading_list.append(heading_angle)
             box3d_size_list.append(size_lwh)
             frustum_angle_list.append(frustum_angle)
+            sample_token_list.append(sample_token)
+            annotation_token_list.append(bounding_box.token)
+            camera_data_token_list.append(camera_token)
+
             num_entries_to_obtained += 1
             print(num_entries_to_obtained)
 
@@ -996,8 +1023,15 @@ def prepare_frustum_data_from_scenes(num_entries_to_get: int, output_filename: s
         pickle.dump(box3d_size_list, fp)
         pickle.dump(frustum_angle_list, fp)
 
+    with open(token_filename, 'wb') as fp:
+        pickle.dump(sample_token_list, fp)
+        pickle.dump(annotation_token_list, fp)
+        pickle.dump(camera_data_token_list, fp)
+        pickle.dump(type_list, fp)
+
 
 if __name__ == "__main__":
     output_file = os.path.join("./artifact/lyft_val_3.pickle")
+    token_file = os.path.join("./artifact/lyft_val_token.pickle")
     # prepare_frustum_data_from_traincsv(64, output_file)
-    prepare_frustum_data_from_scenes(64, output_file)
+    prepare_frustum_data_from_scenes(512, output_file, token_filename=token_file, scenes=range(30))
