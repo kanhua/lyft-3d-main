@@ -121,7 +121,7 @@ class MyTestCase(unittest.TestCase):
 
         cam_token = train_sample['data']['CAM_FRONT']
 
-        bounding_box_in_sensor_coord = transform_box_from_world_to_sensor_coordinates(bounding_box, cam_token)
+        bounding_box_in_sensor_coord = transform_box_from_world_to_sensor_coordinates(bounding_box, cam_token, )
 
         transform_mtx = get_sensor_to_world_transform_matrix(sample_token, 'CAM_FRONT')
 

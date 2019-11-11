@@ -69,7 +69,7 @@ def debug_bounding_box_in_cam_coord():
     assert dummy_bounding_box == bounding_box
 
     camera_token = extract_other_sensor_token('CAM_FRONT', lidar_data_token)
-    bounding_box_sensor_coord = transform_box_from_world_to_sensor_coordinates(bounding_box, camera_token)
+    bounding_box_sensor_coord = transform_box_from_world_to_sensor_coordinates(bounding_box, camera_token, )
     draw_lidar_simple(point_clouds_in_box)
     input()
 

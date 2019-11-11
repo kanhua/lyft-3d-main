@@ -38,6 +38,25 @@ def select_boxes(boxes, classes, scores, score_threshold=0, target_class=10):
     return sq_boxes[sel_id]
 
 
+def select_boxes_ids(boxes, classes, scores, score_threshold=0, target_class=10):
+    """
+
+    :param boxes:
+    :param classes:
+    :param scores:
+    :param target_class: default traffic light id in COCO dataset is 10
+    :return:
+    """
+
+    sq_scores = np.squeeze(scores)
+    sq_classes = np.squeeze(classes)
+    sq_boxes = np.squeeze(boxes)
+
+    sel_id = np.logical_and(sq_classes == target_class, sq_scores > score_threshold)
+
+    return sel_id
+
+
 def rearrange_box_elements(box):
     """
     rearrange the box elements conventions to (xmin,xmax,ymin,ymax)
@@ -120,7 +139,9 @@ class TLClassifier(object):
         return sel_box
 
     def detect_multi_object(self, image_np, score_threshold=[0.8, 0.8, 0.8],
-                            target_classes=[3, 1, 2],rearrange_to_pointnet_convention=True):
+                            target_classes=[3, 1, 2],
+                            rearrange_to_pointnet_convention=True,
+                            output_target_class=False):
         """
         Return detection boxes in a image
 
@@ -131,7 +152,7 @@ class TLClassifier(object):
         :return:
         """
 
-        assert len(score_threshold)==len(target_classes)
+        assert len(score_threshold) == len(target_classes)
 
         # Expand dimensions since the model expects images to have shape: [1, None, None, 3]
         image_np_expanded = np.expand_dims(image_np, axis=0)
@@ -141,13 +162,25 @@ class TLClassifier(object):
             [self.detection_boxes, self.detection_scores, self.detection_classes, self.num_detections],
             feed_dict={self.image_tensor: image_np_expanded})
 
-        all_sel_boxes=[]
-        for idx,target_class in enumerate(target_classes):
-            sel_boxes = select_boxes(boxes=boxes, classes=classes, scores=scores,
-                                 score_threshold=score_threshold[idx], target_class=target_class)
+        all_sel_boxes = None
+        sq_boxes = np.squeeze(boxes)
+        for idx, target_class in enumerate(target_classes):
+            ids = select_boxes_ids(boxes=boxes, classes=classes, scores=scores,
+                                   score_threshold=score_threshold[idx], target_class=target_class)
+            sel_boxes = sq_boxes[ids]
             if rearrange_to_pointnet_convention:
-                sel_boxes=rearrange_box_elements(sel_boxes)
-            all_sel_boxes.append(sel_boxes)
+                sel_boxes = rearrange_box_elements(sel_boxes)
+            box_scores_ids = np.empty((sel_boxes.shape[0], 6))
+            box_scores_ids[:, 0:4] = sel_boxes
+            box_scores_ids[:, 4] = np.squeeze(scores)[ids]
+            if output_target_class:
+                box_scores_ids[:,5]=np.squeeze(classes)[ids]
+            else:
+                box_scores_ids[:, 5] = idx
+            if all_sel_boxes is None:
+                all_sel_boxes = box_scores_ids
+            else:
+                all_sel_boxes = np.concatenate((all_sel_boxes, box_scores_ids))
 
         return all_sel_boxes
 

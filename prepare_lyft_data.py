@@ -61,17 +61,18 @@ def extract_single_box(train_objects, idx) -> Box:
 
     sample_data_token = first_train_sample['data']['LIDAR_TOP']
 
-    first_train_sample_box = transform_box_from_world_to_sensor_coordinates(first_train_sample_box, sample_data_token)
+    first_train_sample_box = transform_box_from_world_to_sensor_coordinates(first_train_sample_box, sample_data_token, )
 
     return first_train_sample_box, sample_data_token
 
 
-def transform_box_from_world_to_sensor_coordinates(first_train_sample_box: Box, sample_data_token: str):
+def transform_box_from_world_to_sensor_coordinates(first_train_sample_box: Box, sample_data_token: str,
+                                                   lyftd: LyftDataset):
     sample_box = first_train_sample_box.copy()
-    sd_record = level5data.get("sample_data", sample_data_token)
-    cs_record = level5data.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
-    sensor_record = level5data.get("sensor", cs_record["sensor_token"])
-    pose_record = level5data.get("ego_pose", sd_record["ego_pose_token"])
+    sd_record = lyftd.get("sample_data", sample_data_token)
+    cs_record = lyftd.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
+    sensor_record = lyftd.get("sensor", cs_record["sensor_token"])
+    pose_record = lyftd.get("ego_pose", sd_record["ego_pose_token"])
     # Move box to ego vehicle coord system
     sample_box.translate(-np.array(pose_record["translation"]))
     sample_box.rotate(Quaternion(pose_record["rotation"]).inverse)
@@ -82,12 +83,13 @@ def transform_box_from_world_to_sensor_coordinates(first_train_sample_box: Box, 
     return sample_box
 
 
-def transform_box_from_world_to_ego_coordinates(first_train_sample_box: Box, sample_data_token: str):
+def transform_box_from_world_to_ego_coordinates(first_train_sample_box: Box, sample_data_token: str,
+                                                lyftd: LyftDataset):
     sample_box = first_train_sample_box.copy()
-    sd_record = level5data.get("sample_data", sample_data_token)
-    cs_record = level5data.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
-    sensor_record = level5data.get("sensor", cs_record["sensor_token"])
-    pose_record = level5data.get("ego_pose", sd_record["ego_pose_token"])
+    sd_record = lyftd.get("sample_data", sample_data_token)
+    cs_record = lyftd.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
+    sensor_record = lyftd.get("sensor", cs_record["sensor_token"])
+    pose_record = lyftd.get("ego_pose", sd_record["ego_pose_token"])
     # Move box to ego vehicle coord system
     sample_box.translate(-np.array(pose_record["translation"]))
     sample_box.rotate(Quaternion(pose_record["rotation"]).inverse)
@@ -95,12 +97,13 @@ def transform_box_from_world_to_ego_coordinates(first_train_sample_box: Box, sam
     return sample_box
 
 
-def transform_box_from_world_to_flat_vehicle_coordinates(first_train_sample_box: Box, sample_data_token: str):
+def transform_box_from_world_to_flat_vehicle_coordinates(first_train_sample_box: Box, sample_data_token: str,
+                                                         lyftd: LyftDataset):
     sample_box = first_train_sample_box.copy()
-    sd_record = level5data.get("sample_data", sample_data_token)
-    cs_record = level5data.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
-    sensor_record = level5data.get("sensor", cs_record["sensor_token"])
-    pose_record = level5data.get("ego_pose", sd_record["ego_pose_token"])
+    sd_record = lyftd.get("sample_data", sample_data_token)
+    cs_record = lyftd.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
+    sensor_record = lyftd.get("sensor", cs_record["sensor_token"])
+    pose_record = lyftd.get("ego_pose", sd_record["ego_pose_token"])
 
     # Move box to ego vehicle coord system parallel to world z plane
     ypr = Quaternion(pose_record["rotation"]).yaw_pitch_roll
@@ -112,12 +115,13 @@ def transform_box_from_world_to_flat_vehicle_coordinates(first_train_sample_box:
     return sample_box
 
 
-def transform_box_from_world_to_flat_sensor_coordinates(first_train_sample_box: Box, sample_data_token: str):
+def transform_box_from_world_to_flat_sensor_coordinates(first_train_sample_box: Box, sample_data_token: str,
+                                                        lyftd: LyftDataset):
     sample_box = first_train_sample_box.copy()
-    sd_record = level5data.get("sample_data", sample_data_token)
-    cs_record = level5data.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
-    sensor_record = level5data.get("sensor", cs_record["sensor_token"])
-    pose_record = level5data.get("ego_pose", sd_record["ego_pose_token"])
+    sd_record = lyftd.get("sample_data", sample_data_token)
+    cs_record = lyftd.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
+    sensor_record = lyftd.get("sensor", cs_record["sensor_token"])
+    pose_record = lyftd.get("ego_pose", sd_record["ego_pose_token"])
 
     # Move box to ego vehicle coord system parallel to world z plane
     ypr = Quaternion(pose_record["rotation"]).yaw_pitch_roll
@@ -145,19 +149,20 @@ def transform_box_from_world_to_flat_sensor_coordinates(first_train_sample_box: 
     return sample_box
 
 
-def transform_bounding_box_to_sensor_coord_and_get_corners(box: Box, sample_data_token: str,
+def transform_bounding_box_to_sensor_coord_and_get_corners(box: Box, sample_data_token: str, lyftd: LyftDataset,
                                                            frustum_pointnet_convention=False):
     """
     Transform the bounding box to Get the bounding box corners
 
     :param box:
     :param sample_data_token: camera data token
+    :param level5data:
     :return:
     """
-    transformed_box = transform_box_from_world_to_sensor_coordinates(box, sample_data_token)
-    sd_record = level5data.get("sample_data", sample_data_token)
-    cs_record = level5data.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
-    sensor_record = level5data.get("sensor", cs_record["sensor_token"])
+    transformed_box = transform_box_from_world_to_sensor_coordinates(box, sample_data_token, lyftd)
+    sd_record = lyftd.get("sample_data", sample_data_token)
+    cs_record = lyftd.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
+    sensor_record = lyftd.get("sensor", cs_record["sensor_token"])
 
     if sensor_record['modality'] == 'camera':
         cam_intrinsic_mtx = np.array(cs_record["camera_intrinsic"])
@@ -181,11 +186,11 @@ def transform_bounding_box_to_sensor_coord_and_get_corners(box: Box, sample_data
     return box_corners_on_image, box_corners_on_cam_coord
 
 
-def get_sensor_to_world_transform_matrix_from_sample_data_token(sample_data_token):
-    sd_record = level5data.get("sample_data", sample_data_token)
-    cs_record = level5data.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
-    sensor_record = level5data.get("sensor", cs_record["sensor_token"])
-    pose_record = level5data.get("ego_pose", sd_record["ego_pose_token"])
+def get_sensor_to_world_transform_matrix_from_sample_data_token(sample_data_token, lyftd: LyftDataset):
+    sd_record = lyftd.get("sample_data", sample_data_token)
+    cs_record = lyftd.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
+    sensor_record = lyftd.get("sensor", cs_record["sensor_token"])
+    pose_record = lyftd.get("ego_pose", sd_record["ego_pose_token"])
 
     sensor_to_ego_mtx = transform_matrix(translation=np.array(cs_record["translation"]),
                                          rotation=Quaternion(cs_record["rotation"]))
@@ -196,8 +201,8 @@ def get_sensor_to_world_transform_matrix_from_sample_data_token(sample_data_toke
     return np.dot(ego_to_world_mtx, sensor_to_ego_mtx)
 
 
-def get_sensor_to_world_transform_matrix(sample_token, sensor_type):
-    sample_record = level5data.get('sample', sample_token)
+def get_sensor_to_world_transform_matrix(sample_token, sensor_type, lyftd: LyftDataset):
+    sample_record = lyftd.get('sample', sample_token)
     sample_data_token = sample_record['data'][sensor_type]
 
     return get_sensor_to_world_transform_matrix_from_sample_data_token(sample_data_token)
@@ -215,7 +220,8 @@ def get_train_data_sample_token_and_box(idx, train_objects):
     return first_train_id, first_train_sample_box
 
 
-def extract_boxed_clouds(num_entries, point_threshold=1024, while_list_type_str=['car', 'pedestrian', 'bicycle'],
+def extract_boxed_clouds(num_entries, lyftd: LyftDataset, point_threshold=1024,
+                         while_list_type_str=['car', 'pedestrian', 'bicycle'],
                          save_file=os.path.join(ARTIFACT_PATH, "val_pc.pickle")):
     point_clouds_list = []
     one_hot_vector_list = []
@@ -234,7 +240,7 @@ def extract_boxed_clouds(num_entries, point_threshold=1024, while_list_type_str=
             one_hot_vector = np.zeros(3, dtype=np.bool)
             one_hot_vector[type_index] = True
 
-        lidar_file_path = level5data.get_sample_data_path(sample_data_token)
+        lidar_file_path = lyftd.get_sample_data_path(sample_data_token)
         lpc = LidarPointCloud.from_file(lidar_file_path)
 
         # get the point cloud associated with this cloud
@@ -317,15 +323,15 @@ def rearrange_one_hot_vector(one_hot_vector_list):
     return np.stack(one_hot_vector_list)
 
 
-def get_sample_images(sample_token: str, ax=None):
-    record = level5data.get("sample", sample_token)
+def get_sample_images(sample_token: str, ax=None, lyftd=level5data):
+    record = lyftd.get("sample", sample_token)
 
     # Separate RADAR from LIDAR and vision.
     radar_data = {}
     nonradar_data = {}
 
     for channel, token in record["data"].items():
-        sd_record = level5data.get("sample_data", token)
+        sd_record = lyftd.get("sample_data", token)
         sensor_modality = sd_record["sensor_modality"]
         if sensor_modality in ["lidar", "camera"]:
             nonradar_data[channel] = token
@@ -335,12 +341,12 @@ def get_sample_images(sample_token: str, ax=None):
     # get projective matrix
 
     for channel, token in nonradar_data.items():
-        sd_record = level5data.get("sample_data", token)
+        sd_record = lyftd.get("sample_data", token)
         sensor_modality = sd_record["sensor_modality"]
 
         if sensor_modality == "camera":
             # Load boxes and image.
-            data_path, boxes, camera_intrinsic = level5data.get_sample_data(token, box_vis_level=BoxVisibility.ANY)
+            data_path, boxes, camera_intrinsic = lyftd.get_sample_data(token, box_vis_level=BoxVisibility.ANY)
 
             data = Image.open(data_path)
 
@@ -362,7 +368,8 @@ def get_sample_images(sample_token: str, ax=None):
             plt.close()
 
 
-def get_pc_in_image_fov(point_cloud_token: str, camera_type: str, bounding_box=None, clip_distance=2.0):
+def get_pc_in_image_fov(point_cloud_token: str, camera_type: str, lyftd: LyftDataset, bounding_box=None,
+                        clip_distance=2.0):
     """
 
     :param point_cloud_token:
@@ -373,13 +380,13 @@ def get_pc_in_image_fov(point_cloud_token: str, camera_type: str, bounding_box=N
     filetered lindar points array projected onto image plane, LidarPointCloud object transformed to camera coordinate, 2D image array
     """
 
-    cam_token = extract_other_sensor_token(camera_type, point_cloud_token)
+    cam_token = extract_other_sensor_token(camera_type, point_cloud_token, lyftd)
 
-    lidar_file_path = level5data.get_sample_data_path(point_cloud_token)
+    lidar_file_path = lyftd.get_sample_data_path(point_cloud_token)
     lpc = LidarPointCloud.from_file(lidar_file_path)
 
     # _, _, img, mask = map_pointcloud_to_image(point_cloud_token, cam_token)
-    img, lpc, pc_2d_array = project_point_clouds_to_image(cam_token, point_cloud_token)
+    img, lpc, pc_2d_array = project_point_clouds_to_image(cam_token, point_cloud_token, lyftd)
 
     mask = mask_points(pc_2d_array, 0, img.size[0], ymin=0, ymax=img.size[1])
 
@@ -389,22 +396,27 @@ def get_pc_in_image_fov(point_cloud_token: str, camera_type: str, bounding_box=N
 
     if type(bounding_box) == Box:
         projected_corners, _ = transform_bounding_box_to_sensor_coord_and_get_corners(bounding_box,
-                                                                                      sample_data_token=cam_token)
+                                                                                      sample_data_token=cam_token,
+                                                                                      lyftd=lyftd)
         xmin, xmax, ymin, ymax = get_2d_corners_from_projected_box_coordinates(projected_corners)
         box_mask = mask_points(pc_2d_array, xmin, xmax, ymin, ymax)
         mask = np.logical_and(mask, box_mask)
     elif type(bounding_box) == np.ndarray:
         assert len(bounding_box) == 4
         xmin, xmax, ymin, ymax = bounding_box
+        xmin *= img.size[0]
+        xmax *= img.size[0]
+        ymin *= img.size[1]
+        ymax *= img.size[1]
         box_mask = mask_points(pc_2d_array, xmin, xmax, ymin, ymax)
         mask = np.logical_and(mask, box_mask)
 
     return mask, lpc.points[:, mask], pc_2d_array[:, mask], lpc, img
 
 
-def extract_other_sensor_token(camera_type, point_cloud_token):
-    pc_record = level5data.get("sample_data", point_cloud_token)
-    sample_of_pc_record = level5data.get("sample", pc_record['sample_token'])
+def extract_other_sensor_token(camera_type, point_cloud_token, lyftd: LyftDataset):
+    pc_record = lyftd.get("sample_data", point_cloud_token)
+    sample_of_pc_record = lyftd.get("sample", pc_record['sample_token'])
     cam_token = sample_of_pc_record['data'][camera_type]
     return cam_token
 
@@ -480,7 +492,7 @@ def mask_points(points: np.ndarray, xmin,
     return mask
 
 
-def project_point_clouds_to_image(camera_token: str, pointsensor_token: str):
+def project_point_clouds_to_image(camera_token: str, pointsensor_token: str, lyftd: LyftDataset):
     """
 
     :param camera_token:
@@ -488,7 +500,6 @@ def project_point_clouds_to_image(camera_token: str, pointsensor_token: str):
     :return: (image array, transformed 3d point cloud to camera coordinate, 2d point cloud array)
     """
 
-    lyftd = level5data
     cam = lyftd.get("sample_data", camera_token)
     pointsensor = lyftd.get("sample_data", pointsensor_token)
     pcl_path = lyftd.data_path / pointsensor["filename"]
@@ -518,11 +529,11 @@ def project_point_clouds_to_image(camera_token: str, pointsensor_token: str):
     return im, pc, point_cloud_2d
 
 
-def transform_world_to_image_coordinate(word_coord_array, camera_token: str):
-    sd_record = level5data.get("sample_data", camera_token)
-    cs_record = level5data.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
-    sensor_record = level5data.get("sensor", cs_record["sensor_token"])
-    pose_record = level5data.get("ego_pose", sd_record["ego_pose_token"])
+def transform_world_to_image_coordinate(word_coord_array, camera_token: str, lyftd: LyftDataset):
+    sd_record = lyftd.get("sample_data", camera_token)
+    cs_record = lyftd.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
+    sensor_record = lyftd.get("sensor", cs_record["sensor_token"])
+    pose_record = lyftd.get("ego_pose", sd_record["ego_pose_token"])
 
     cam_intrinsic_mtx = np.array(cs_record["camera_intrinsic"])
 
@@ -545,11 +556,11 @@ def transform_world_to_image_coordinate(word_coord_array, camera_token: str):
     return view_points(sense_coord_array, cam_intrinsic_mtx, normalize=True)
 
 
-def transform_image_to_cam_coordinate(image_array_p: np.array, camera_token: str):
-    sd_record = level5data.get("sample_data", camera_token)
-    cs_record = level5data.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
-    sensor_record = level5data.get("sensor", cs_record["sensor_token"])
-    pose_record = level5data.get("ego_pose", sd_record["ego_pose_token"])
+def transform_image_to_cam_coordinate(image_array_p: np.array, camera_token: str, lyftd: LyftDataset):
+    sd_record = lyftd.get("sample_data", camera_token)
+    cs_record = lyftd.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
+    sensor_record = lyftd.get("sensor", cs_record["sensor_token"])
+    pose_record = lyftd.get("ego_pose", sd_record["ego_pose_token"])
 
     # inverse the viewpoint transformation
     def normalization(input_array):
@@ -569,7 +580,7 @@ def transform_image_to_cam_coordinate(image_array_p: np.array, camera_token: str
     return image_in_cam_coord[0:3, :]
 
 
-def transform_image_to_world_coordinate(image_array: np.array, camera_token: str):
+def transform_image_to_world_coordinate(image_array: np.array, camera_token: str, lyftd: LyftDataset):
     """
 
     :param image_array: 3xN np.ndarray
@@ -577,10 +588,10 @@ def transform_image_to_world_coordinate(image_array: np.array, camera_token: str
     :return:
     """
 
-    sd_record = level5data.get("sample_data", camera_token)
-    cs_record = level5data.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
-    sensor_record = level5data.get("sensor", cs_record["sensor_token"])
-    pose_record = level5data.get("ego_pose", sd_record["ego_pose_token"])
+    sd_record = lyftd.get("sample_data", camera_token)
+    cs_record = lyftd.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
+    sensor_record = lyftd.get("sensor", cs_record["sensor_token"])
+    pose_record = lyftd.get("ego_pose", sd_record["ego_pose_token"])
 
     # inverse the viewpoint transformation
 
@@ -724,9 +735,9 @@ def get_box_corners_yaw_angle_in_world_coords(box_corners):
     return heading_angle
 
 
-def convert_box_to_world_coord(box: Box, sample_token, sensor_type):
+def convert_box_to_world_coord(box: Box, sample_token, sensor_type, lyftd: LyftDataset):
     sample_box = box.copy()
-    sample_record = level5data.get('sample', sample_token)
+    sample_record = lyftd.get('sample', sample_token)
     sample_data_token = sample_record['data'][sensor_type]
 
     converted_sample_box = convert_box_to_world_coord_with_sample_data_token(sample_box, sample_data_token)
@@ -734,13 +745,13 @@ def convert_box_to_world_coord(box: Box, sample_token, sensor_type):
     return converted_sample_box
 
 
-def convert_box_to_world_coord_with_sample_data_token(input_sample_box, sample_data_token):
+def convert_box_to_world_coord_with_sample_data_token(input_sample_box, sample_data_token, lyftd: LyftDataset):
     sample_box = input_sample_box.copy()
 
-    sd_record = level5data.get("sample_data", sample_data_token)
-    cs_record = level5data.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
-    sensor_record = level5data.get("sensor", cs_record["sensor_token"])
-    pose_record = level5data.get("ego_pose", sd_record["ego_pose_token"])
+    sd_record = lyftd.get("sample_data", sample_data_token)
+    cs_record = lyftd.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
+    sensor_record = lyftd.get("sensor", cs_record["sensor_token"])
+    pose_record = lyftd.get("ego_pose", sd_record["ego_pose_token"])
     #  Move box from sensor to vehicle ego coord system
     sample_box.rotate(Quaternion(cs_record["rotation"]))
     sample_box.translate(np.array(cs_record["translation"]))
@@ -751,7 +762,7 @@ def convert_box_to_world_coord_with_sample_data_token(input_sample_box, sample_d
     return sample_box
 
 
-def prepare_frustum_data_from_traincsv(num_entries_to_get: int, output_filename: str):
+def prepare_frustum_data_from_traincsv(num_entries_to_get: int, output_filename: str, lyftd: LyftDataset):
     train_df = parse_train_csv()
 
     pt_thres = 100  # only selects the boxes with points larger than 100 in the 3D ground truth box,
@@ -776,7 +787,7 @@ def prepare_frustum_data_from_traincsv(num_entries_to_get: int, output_filename:
     while num_entries_to_obtained < num_entries_to_get:
         sample_token, bounding_box = get_train_data_sample_token_and_box(data_idx, train_df)
 
-        sample_record = level5data.get('sample', sample_token)
+        sample_record = lyftd.get('sample', sample_token)
 
         lidar_data_token = sample_record['data']['LIDAR_TOP']
         camera_token = extract_other_sensor_token('CAM_FRONT', lidar_data_token)
@@ -827,7 +838,8 @@ def prepare_frustum_data_from_traincsv(num_entries_to_get: int, output_filename:
         pickle.dump(frustum_angle_list, fp)
 
 
-def get_single_frustum_pointnet_input(bounding_box, camera_token, lidar_data_token, from_rgb_detection=False):
+def get_single_frustum_pointnet_input(bounding_box, camera_token, lidar_data_token, lyftd: LyftDataset,
+                                      from_rgb_detection):
     if from_rgb_detection:
         assert type(bounding_box) == np.ndarray
         assert bounding_box.shape[0] == 4
@@ -837,15 +849,12 @@ def get_single_frustum_pointnet_input(bounding_box, camera_token, lidar_data_tok
     if not from_rgb_detection:
         w, l, h = bounding_box.wlh
         size_lwh = np.array([l, w, h])
-    dummy_bounding_box = bounding_box.copy()
 
     mask, point_clouds_in_box, _, _, image = get_pc_in_image_fov(lidar_data_token, 'CAM_FRONT',
-                                                                 bounding_box)
-    assert dummy_bounding_box == bounding_box
-
+                                                                 lyftd=lyftd, bounding_box=bounding_box)
 
     if not from_rgb_detection:
-        bounding_box_sensor_coord = transform_box_from_world_to_sensor_coordinates(bounding_box, camera_token)
+        bounding_box_sensor_coord = transform_box_from_world_to_sensor_coordinates(bounding_box, camera_token, lyftd)
         _, label = extract_pc_in_box3d(point_clouds_in_box[0:3, :], bounding_box_sensor_coord.corners())
         # plot_cam_top_view(point_clouds_in_box[0:3,label],bounding_box_sensor_coord)
         # assert np.sum(label) <= point_clouds_in_box.shape[1]
@@ -857,12 +866,13 @@ def get_single_frustum_pointnet_input(bounding_box, camera_token, lidar_data_tok
         box_corners_on_image, box_corners_on_camera_coord = transform_bounding_box_to_sensor_coord_and_get_corners(
             bounding_box,
             camera_token,
+            lyftd=lyftd,
             frustum_pointnet_convention=True)
         box3d_pts_3d = np.transpose(box_corners_on_camera_coord)
         xmin, xmax, ymin, ymax = get_2d_corners_from_projected_box_coordinates(box_corners_on_image)
     else:
-        xmin,xmax,ymin,ymax=bounding_box
-    frustum_angle = get_frustum_angle(camera_token, xmax, xmin, ymax, ymin)
+        xmin, xmax, ymin, ymax = bounding_box
+    frustum_angle = get_frustum_angle(lyftd, camera_token, xmax, xmin, ymax, ymin)
     estimate_point_cloud_intensity(point_clouds_in_box)
     point_clouds_in_box = np.transpose(point_clouds_in_box)
     box_2d_pts = np.array([xmin, ymin, xmax, ymax])
@@ -870,13 +880,13 @@ def get_single_frustum_pointnet_input(bounding_box, camera_token, lidar_data_tok
     if not from_rgb_detection:
         return box3d_pts_3d, box_2d_pts, frustum_angle, heading_angle, label, point_clouds_in_box, size_lwh
     else:
-        return box_2d_pts,frustum_angle,point_clouds_in_box
+        return box_2d_pts, frustum_angle, point_clouds_in_box
 
 
-def get_frustum_angle(cam_token, xmax, xmin, ymax, ymin):
+def get_frustum_angle(lyftd: LyftDataset, cam_token, xmax, xmin, ymax, ymin):
     random_depth = 20
     image_center = np.array([[(xmax + xmin) / 2, (ymax + ymin) / 2, random_depth]]).T
-    image_center_in_cam_coord = transform_image_to_cam_coordinate(image_center, cam_token)
+    image_center_in_cam_coord = transform_image_to_cam_coordinate(image_center, cam_token, lyftd)
     assert image_center_in_cam_coord.shape[1] == 1
     frustum_angle = -np.arctan2(image_center_in_cam_coord[2, 0], image_center_in_cam_coord[0, 0])
     return frustum_angle
@@ -887,7 +897,7 @@ def estimate_point_cloud_intensity(point_clouds_in_box):
     point_clouds_in_box[3, :] = 0.2
 
 
-def select_annotation_boxes(sample_token, box_vis_level: BoxVisibility = BoxVisibility.ALL,
+def select_annotation_boxes(sample_token, lyftd: LyftDataset, box_vis_level: BoxVisibility = BoxVisibility.ALL,
                             camera_type=['CAM_FRONT']) -> (str, str, Box):
     """
     Select annotations that is a camera image defined by box_vis_level
@@ -898,30 +908,58 @@ def select_annotation_boxes(sample_token, box_vis_level: BoxVisibility = BoxVisi
     :param camera_type: a list of camera that the token should be selected from
     :return: yield (sample_token,cam_token, Box)
     """
-    sample_record = level5data.get('sample', sample_token)
+    sample_record = lyftd.get('sample', sample_token)
 
     cams = [key for key in sample_record["data"].keys() if "CAM" in key]
     cams = [cam for cam in cams if cam in camera_type]
     for ann_token in sample_record['anns']:
         for cam in cams:
             cam_token = sample_record["data"][cam]
-            _, boxes_in_sensor_coord, cam_intrinsic = level5data.get_sample_data(
+            _, boxes_in_sensor_coord, cam_intrinsic = lyftd.get_sample_data(
                 cam_token, box_vis_level=box_vis_level, selected_anntokens=[ann_token]
             )
             if len(boxes_in_sensor_coord) > 0:
                 assert len(boxes_in_sensor_coord) == 1
-                box_in_world_coord = level5data.get_box(boxes_in_sensor_coord[0].token)
+                box_in_world_coord = lyftd.get_box(boxes_in_sensor_coord[0].token)
                 yield sample_token, cam_token, box_in_world_coord
 
 
-def get_all_boxes_in_single_scene(scene_number):
+from object_classifier import TLClassifier
+from skimage.io import imread
+
+tlc = TLClassifier()
+
+
+def select_2d_annotation_boxes(ldf: LyftDataset, classifier, sample_token,
+                               camera_type=['CAM_FRONT']) -> (str, str, np.ndarray):
+    sample_record = ldf.get('sample', sample_token)
+
+    cams = [key for key in sample_record["data"].keys() if "CAM" in key]
+    cams = [cam for cam in cams if cam in camera_type]
+    for cam in cams:
+        cam_token = sample_record["data"][cam]
+        image_file_path = ldf.get_sample_data_path(cam_token)
+        image_array = imread(image_file_path)
+        det_result = classifier.detect_multi_object(image_array, score_threshold=[0.6, 0.8, 0.8])
+        for i in range(det_result.shape[0]):
+            bounding_2d_box = det_result[i, 0:4]
+            score = det_result[i, 4]
+            class_idx = det_result[i, 5]
+            yield sample_token, cam_token, bounding_2d_box, score, class_idx
+
+
+def get_all_boxes_in_single_scene(scene_number, from_rgb_detection, ldf: LyftDataset):
     results = []
-    start_sample_token = level5data.scene[scene_number]['first_sample_token']
+    start_sample_token = ldf.scene[scene_number]['first_sample_token']
     sample_token = start_sample_token
     while sample_token != "":
-        sample_record = level5data.get('sample', sample_token)
-        for tks in select_annotation_boxes(sample_token):
-            results.append(tks)
+        sample_record = ldf.get('sample', sample_token)
+        if not from_rgb_detection:
+            for tks in select_annotation_boxes(sample_token, lyftd=ldf):
+                results.append(tks)
+        else:
+            for tks in select_2d_annotation_boxes(ldf, classifier=tlc, sample_token=sample_token):
+                results.append(tks)
 
         next_sample_token = sample_record['next']
         sample_token = next_sample_token
@@ -929,10 +967,10 @@ def get_all_boxes_in_single_scene(scene_number):
     return results
 
 
-def get_all_boxes_in_scenes(scene_numbers: List):
+def get_all_boxes_in_scenes(scene_numbers: List, lyftd: LyftDataset, from_rgb_detection: bool):
     results = []
     for scene_num in scene_numbers:
-        sub_results = get_all_boxes_in_single_scene(scene_num)
+        sub_results = get_all_boxes_in_single_scene(scene_num, from_rgb_detection=from_rgb_detection, ldf=lyftd)
         results.extend(sub_results)
     return results
 
@@ -940,7 +978,10 @@ def get_all_boxes_in_scenes(scene_numbers: List):
 def prepare_frustum_data_from_scenes(num_entries_to_get: int,
                                      output_filename: str,
                                      token_filename: str,
-                                     scenes=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]):
+                                     lyftdf: LyftDataset,
+                                     scenes=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+                                     from_rgb_detection=False,
+                                     ):
     pt_thres = 100  # only selects the boxes with points larger than 100 in the 3D ground truth box,
     # because the ground truth 3D box may not be covered by the field of view of camera
 
@@ -957,44 +998,83 @@ def prepare_frustum_data_from_scenes(num_entries_to_get: int,
     sample_token_list = []
     annotation_token_list = []
     camera_data_token_list = []
+    prob_list = []
 
     data_idx = 0
     num_entries_to_obtained = 0
 
     object_of_interest_name = ['car', 'pedestrian', 'cyclist']
 
-    results = get_all_boxes_in_scenes(scenes)
+    results = get_all_boxes_in_scenes(scenes, lyftd=lyftdf, from_rgb_detection=from_rgb_detection)
 
     while num_entries_to_obtained < num_entries_to_get:
 
         result = results[data_idx]
-        sample_token, camera_token, bounding_box = result
 
-        sample_record = level5data.get('sample', sample_token)
+        if not from_rgb_detection:
+            sample_token, camera_token, bounding_box = result
+        else:
+            sample_token, camera_token, bounding_2d_box, score, class_idx = result
+
+        sample_record = lyftdf.get('sample', sample_token)
 
         lidar_data_token = sample_record['data']['LIDAR_TOP']
 
-        box3d_pts_3d, box_2d_pts, frustum_angle, heading_angle, label, point_clouds_in_box, size_lwh = get_single_frustum_pointnet_input(
-            bounding_box, camera_token, lidar_data_token)
+        try:
+            if not from_rgb_detection:
+                box3d_pts_3d, box_2d_pts, frustum_angle, heading_angle, label, point_clouds_in_box, size_lwh = get_single_frustum_pointnet_input(
+                    bounding_box, camera_token, lidar_data_token, lyftd=lyftdf, from_rgb_detection=from_rgb_detection)
+            else:
+                box_2d_pts, frustum_angle, point_clouds_in_box = get_single_frustum_pointnet_input(bounding_2d_box,
+                                                                                                   camera_token,
+                                                                                                   lidar_data_token,
+                                                                                                   lyftd=lyftdf,
+                                                                                                   from_rgb_detection=from_rgb_detection)
+        except ValueError:
+            print("skpped data", data_idx)
+            data_idx += 1
+            continue
 
-        if point_clouds_in_box.shape[0] > 0 and (bounding_box.name in object_of_interest_name) and np.sum(
-                label) > pt_thres:
+        # determine select criteria
+        select_data_flag = False
+
+        if not from_rgb_detection:
+            if point_clouds_in_box.shape[0] > 0 and (bounding_box.name in object_of_interest_name) and np.sum(
+                    label) > pt_thres:
+                select_data_flag = True
+        else:
+            if point_clouds_in_box.shape[0] > 0:
+                select_data_flag = True
+
+        if select_data_flag:
             id_list.append(data_idx)
             box2d_list.append(box_2d_pts)
-            assert box3d_pts_3d.shape == (8, 3)
-            box3d_list.append(box3d_pts_3d)  # 3D bounding box projected onto image plane
+
             assert point_clouds_in_box.shape[1] == 4
             # assert point_clouds_in_box.shape[0] >0
             print(point_clouds_in_box.shape)
             input_list.append(point_clouds_in_box)
-            label_list.append(label)
-            type_list.append(bounding_box.name)
-            heading_list.append(heading_angle)
-            box3d_size_list.append(size_lwh)
+
+            if not from_rgb_detection:
+                label_list.append(label)
+                box3d_size_list.append(size_lwh)
+                heading_list.append(heading_angle)
+                annotation_token_list.append(bounding_box.token)
+                assert box3d_pts_3d.shape == (8, 3)
+                box3d_list.append(box3d_pts_3d)  # 3D bounding box projected onto camera coordinates
+
+            if not from_rgb_detection:
+                type_list.append(bounding_box.name)
+            else:
+                type_list.append(object_of_interest_name[class_idx])
+
             frustum_angle_list.append(frustum_angle)
             sample_token_list.append(sample_token)
-            annotation_token_list.append(bounding_box.token)
+
             camera_data_token_list.append(camera_token)
+
+            if from_rgb_detection:
+                prob_list.append(score)
 
             num_entries_to_obtained += 1
             print(num_entries_to_obtained)
@@ -1002,26 +1082,39 @@ def prepare_frustum_data_from_scenes(num_entries_to_get: int,
         data_idx += 1
 
     # check that everything is implemented
+    if not from_rgb_detection:
+        assert len(box3d_list) > 0
+        assert len(label_list) > 0
+        assert len(heading_list) > 0
+        assert len(box3d_size_list) > 0
+    else:
+        assert len(prob_list) > 0
+
+    assert len(frustum_angle_list) > 0
+    assert len(type_list) > 0
     assert len(id_list) > 0
     assert len(box2d_list) > 0
-    assert len(box3d_list) > 0
     assert len(input_list) > 0
-    assert len(label_list) > 0
-    assert len(type_list) > 0
-    assert len(heading_list) > 0
-    assert len(box3d_size_list) > 0
-    assert len(frustum_angle_list) > 0
 
-    with open(output_filename, 'wb') as fp:
-        pickle.dump(id_list, fp)
-        pickle.dump(box2d_list, fp)
-        pickle.dump(box3d_list, fp)
-        pickle.dump(input_list, fp)
-        pickle.dump(label_list, fp)
-        pickle.dump(type_list, fp)
-        pickle.dump(heading_list, fp)
-        pickle.dump(box3d_size_list, fp)
-        pickle.dump(frustum_angle_list, fp)
+    if not from_rgb_detection:
+        with open(output_filename, 'wb') as fp:
+            pickle.dump(id_list, fp)
+            pickle.dump(box2d_list, fp)
+            pickle.dump(box3d_list, fp)
+            pickle.dump(input_list, fp)
+            pickle.dump(label_list, fp)
+            pickle.dump(type_list, fp)
+            pickle.dump(heading_list, fp)
+            pickle.dump(box3d_size_list, fp)
+            pickle.dump(frustum_angle_list, fp)
+    else:
+        with open(output_filename, 'wb') as fp:
+            pickle.dump(id_list, fp)
+            pickle.dump(box2d_list, fp)
+            pickle.dump(input_list, fp)
+            pickle.dump(type_list, fp)
+            pickle.dump(frustum_angle_list, fp)
+            pickle.dump(prob_list, fp)
 
     with open(token_filename, 'wb') as fp:
         pickle.dump(sample_token_list, fp)
@@ -1034,4 +1127,4 @@ if __name__ == "__main__":
     output_file = os.path.join("./artifact/lyft_val_3.pickle")
     token_file = os.path.join("./artifact/lyft_val_token.pickle")
     # prepare_frustum_data_from_traincsv(64, output_file)
-    prepare_frustum_data_from_scenes(512, output_file, token_filename=token_file, scenes=range(30))
+    prepare_frustum_data_from_scenes(512, output_file, lyftdf=level5data, token_filename=token_file, scenes=range(30))
