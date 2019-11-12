@@ -57,20 +57,23 @@ def select_boxes_ids(boxes, classes, scores, score_threshold=0, target_class=10)
     return sel_id
 
 
-def rearrange_box_elements(box):
+def rearrange_and_rescale_box_elements(box, image_np):
     """
     rearrange the box elements conventions to (xmin,xmax,ymin,ymax)
 
 
     :param box:
+    :param image_np:
     :return:
     """
+
+    im_height, im_width, _ = image_np.shape
     nbox = np.zeros_like(box)
 
-    nbox[:, 0] = box[:, 1]
-    nbox[:, 1] = box[:, 3]
-    nbox[:, 2] = box[:, 0]
-    nbox[:, 3] = box[:, 2]
+    nbox[:, 0] = box[:, 1] * im_width
+    nbox[:, 1] = box[:, 3] * im_width
+    nbox[:, 2] = box[:, 0] * im_height
+    nbox[:, 3] = box[:, 2] * im_height
     return nbox
 
 
@@ -169,12 +172,12 @@ class TLClassifier(object):
                                    score_threshold=score_threshold[idx], target_class=target_class)
             sel_boxes = sq_boxes[ids]
             if rearrange_to_pointnet_convention:
-                sel_boxes = rearrange_box_elements(sel_boxes)
+                sel_boxes = rearrange_and_rescale_box_elements(sel_boxes, image_np)
             box_scores_ids = np.empty((sel_boxes.shape[0], 6))
             box_scores_ids[:, 0:4] = sel_boxes
             box_scores_ids[:, 4] = np.squeeze(scores)[ids]
             if output_target_class:
-                box_scores_ids[:,5]=np.squeeze(classes)[ids]
+                box_scores_ids[:, 5] = np.squeeze(classes)[ids]
             else:
                 box_scores_ids[:, 5] = idx
             if all_sel_boxes is None:

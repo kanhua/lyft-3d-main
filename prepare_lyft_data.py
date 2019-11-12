@@ -34,18 +34,26 @@ else:
     with open(os.path.join(DATA_PATH, level5data_snapshot_file), 'wb') as fp:
         pickle.dump(level5data, fp)
 
-
-def parse_train_csv():
-    train = pd.read_csv(DATA_PATH + 'train.csv')
+default_train_file=DATA_PATH+"train.csv"
+def parse_train_csv(data_file=default_train_file,with_score=False):
+    train = pd.read_csv(data_file)
 
     object_columns = ['sample_id', 'object_id', 'center_x', 'center_y', 'center_z',
                       'width', 'length', 'height', 'yaw', 'class_name']
     objects = []
+    col_num=8
+    if with_score:
+        col_num=9
     for sample_id, ps in tqdm(train.values[:]):
+        if type(ps)!=str:
+            continue
         object_params = ps.split()
         n_objects = len(object_params)
-        for i in range(n_objects // 8):
-            x, y, z, w, l, h, yaw, c = tuple(object_params[i * 8: (i + 1) * 8])
+        for i in range(n_objects // col_num):
+            if with_score:
+                score,x, y, z, w, l, h, yaw, c = tuple(object_params[i * 9: (i + 1) * 9])
+            else:
+                x, y, z, w, l, h, yaw, c = tuple(object_params[i * 8: (i + 1) * 8])
             objects.append([sample_id, i, float(x), float(y), float(z), float(w), float(l), float(h), yaw, c])
     train_objects = pd.DataFrame(
         objects,
@@ -54,14 +62,15 @@ def parse_train_csv():
     return train_objects
 
 
-def extract_single_box(train_objects, idx) -> Box:
+def extract_single_box(train_objects, idx,lyftd:LyftDataset) -> Box:
     first_train_id, first_train_sample_box = get_train_data_sample_token_and_box(idx, train_objects)
 
-    first_train_sample = level5data.get('sample', first_train_id)
+    first_train_sample = lyftd.get('sample', first_train_id)
 
     sample_data_token = first_train_sample['data']['LIDAR_TOP']
 
-    first_train_sample_box = transform_box_from_world_to_sensor_coordinates(first_train_sample_box, sample_data_token, )
+    first_train_sample_box = transform_box_from_world_to_sensor_coordinates(first_train_sample_box,
+                                                                            sample_data_token,lyftd )
 
     return first_train_sample_box, sample_data_token
 
@@ -407,10 +416,6 @@ def get_pc_in_image_fov(point_cloud_token: str, camera_type: str, lyftd: LyftDat
     elif type(bounding_box) == np.ndarray:
         assert len(bounding_box) == 4
         xmin, xmax, ymin, ymax = bounding_box
-        xmin *= img.size[0]
-        xmax *= img.size[0]
-        ymin *= img.size[1]
-        ymax *= img.size[1]
         box_mask = mask_points(pc_2d_array, xmin, xmax, ymin, ymax)
         mask = np.logical_and(mask, box_mask)
 
@@ -1012,14 +1017,13 @@ def prepare_frustum_data_from_scenes(num_entries_to_get: int,
         pickle.dump(results,fp)
 
     all_results_num = len(results)
-    batch_num = 32
-    quotient = all_results_num // batch_num
-    desired_entry_num = batch_num * quotient
 
-    num_entries_to_get=min(num_entries_to_get,desired_entry_num)
+    num_entries_to_get=min(num_entries_to_get,all_results_num)
     print("number of entries to get:",num_entries_to_get)
     with tqdm(total=num_entries_to_get) as counter:
         while num_entries_to_obtained < num_entries_to_get:
+            if data_idx > (len(results)-1):
+                break
 
             result = results[data_idx]
 
