@@ -939,7 +939,7 @@ tlc = TLClassifier()
 
 
 def select_2d_annotation_boxes(ldf: LyftDataset, classifier, sample_token,
-                               camera_type=['CAM_FRONT']) -> (str, str, np.ndarray):
+                               camera_type=['CAM_FRONT','CAM_BACK']) -> (str, str, np.ndarray):
     sample_record = ldf.get('sample', sample_token)
 
     cams = [key for key in sample_record["data"].keys() if "CAM" in key]
@@ -948,7 +948,7 @@ def select_2d_annotation_boxes(ldf: LyftDataset, classifier, sample_token,
         cam_token = sample_record["data"][cam]
         image_file_path = ldf.get_sample_data_path(cam_token)
         image_array = imread(image_file_path)
-        det_result = classifier.detect_multi_object(image_array, score_threshold=[0.6, 0.6, 0.6])
+        det_result = classifier.detect_multi_object(image_array, score_threshold=[0.4, 0.4, 0.4])
         for i in range(det_result.shape[0]):
             bounding_2d_box = det_result[i, 0:4]
             score = det_result[i, 4]
