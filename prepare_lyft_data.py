@@ -1142,4 +1142,4 @@ if __name__ == "__main__":
     output_file = os.path.join("./artifact/lyft_val_3.pickle")
     token_file = os.path.join("./artifact/lyft_val_token.pickle")
     # prepare_frustum_data_from_traincsv(64, output_file)
-    prepare_frustum_data_from_scenes(512, output_file, lyftdf=level5data, token_filename=token_file, scenes=range(30))
+    prepare_frustum_data_from_scenes(512, output_file, lyftdf=level5data, token_filename=token_file, scenes=range(5))
