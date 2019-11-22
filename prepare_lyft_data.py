@@ -1150,7 +1150,7 @@ def prepare_frustum_data_from_scenes(num_entries_to_get: int,
 
 if __name__ == "__main__":
     total_scenes=181
-    batch=1
+    batch=10
     batch_num=int(total_scenes/batch)
     for idx in range(batch_num):
         opt_file_pat="lyft_frustum_{}.pickle".format(idx)
