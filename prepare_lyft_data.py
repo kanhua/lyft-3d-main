@@ -1149,7 +1149,13 @@ def prepare_frustum_data_from_scenes(num_entries_to_get: int,
 
 
 if __name__ == "__main__":
-    output_file = os.path.join(ARTIFACT_PATH,"lyft_val_5.pickle")
-    token_file = os.path.join(ARTIFACT_PATH,"lyft_val_token_5.pickle")
-    # prepare_frustum_data_from_traincsv(64, output_file)
-    prepare_frustum_data_from_scenes(100000, output_file, lyftdf=level5data, token_filename=token_file, scenes=range(50))
+    total_scenes=181
+    batch=1
+    batch_num=int(total_scenes/batch)
+    for idx in range(batch_num):
+        opt_file_pat="lyft_frustum_{}.pickle".format(idx)
+        token_file_pat="lyft_frustum_token_{}.pickle".format(idx)
+        output_file = os.path.join(ARTIFACT_PATH,opt_file_pat)
+        token_file = os.path.join(ARTIFACT_PATH,token_file_pat)
+        # prepare_frustum_data_from_traincsv(64, output_file)
+        prepare_frustum_data_from_scenes(100000, output_file, lyftdf=level5data, token_filename=token_file, scenes=range(idx*batch,(idx+1)*batch))
