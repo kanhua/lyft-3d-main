@@ -14,13 +14,26 @@ from lyft_dataset_sdk.utils.geometry_utils import view_points, transform_matrix,
 
 import matplotlib.pyplot as plt
 
+from object_classifier import TLClassifier
+from skimage.io import imread
+
+import argparse
+
+parser = argparse.ArgumentParser()
+
+
+parser.add_argument('--data_path',default='/Users/kanhua/Downloads/3d-object-detection-for-autonomous-vehicles',help='dataset path')
+parser.add_argument('--artifact_path',default='/Users/kanhua/Downloads/3d-object-detection-for-autonomous-vehicles/artifacts',help='artifacts path')
+FLAGS=parser.parse_args()
+
+tlc = TLClassifier()
+
 # Load the dataset
 # Adjust the dataroot parameter below to point to your local dataset path.
 # The correct dataset path contains at least the following four folders (or similar): images, lidar, maps, v1.0.1-train
-data_path = '/Users/kanhua/Downloads/3d-object-detection-for-autonomous-vehicles'
-ARTIFACT_PATH = "/Users/kanhua/Downloads/3d-object-detection-for-autonomous-vehicles/artifacts"
+DATA_PATH = FLAGS.data_path
+ARTIFACT_PATH = FLAGS.artifact_path
 
-DATA_PATH = '/Users/kanhua/Downloads/3d-object-detection-for-autonomous-vehicles/'
 level5data_snapshot_file = "level5data.pickle"
 
 if os.path.exists(os.path.join(DATA_PATH, level5data_snapshot_file)):
@@ -28,8 +41,8 @@ if os.path.exists(os.path.join(DATA_PATH, level5data_snapshot_file)):
         level5data = pickle.load(fp)
 else:
 
-    level5data = LyftDataset(data_path='/Users/kanhua/Downloads/3d-object-detection-for-autonomous-vehicles',
-                             json_path='/Users/kanhua/Downloads/3d-object-detection-for-autonomous-vehicles/data/',
+    level5data = LyftDataset(data_path=DATA_PATH,
+                             json_path=os.path.join(DATA_PATH,'data/'),
                              verbose=True)
     with open(os.path.join(DATA_PATH, level5data_snapshot_file), 'wb') as fp:
         pickle.dump(level5data, fp)
@@ -932,10 +945,7 @@ def select_annotation_boxes(sample_token, lyftd: LyftDataset, box_vis_level: Box
                 yield sample_token, cam_token, box_in_world_coord
 
 
-from object_classifier import TLClassifier
-from skimage.io import imread
 
-tlc = TLClassifier()
 
 
 def select_2d_annotation_boxes(ldf: LyftDataset, classifier, sample_token,
@@ -1139,7 +1149,7 @@ def prepare_frustum_data_from_scenes(num_entries_to_get: int,
 
 
 if __name__ == "__main__":
-    output_file = os.path.join("./artifact/lyft_val_3.pickle")
-    token_file = os.path.join("./artifact/lyft_val_token.pickle")
+    output_file = os.path.join(ARTIFACT_PATH,"lyft_val_4.pickle")
+    token_file = os.path.join(ARTIFACT_PATH,"./artifact/lyft_val_token.pickle")
     # prepare_frustum_data_from_traincsv(64, output_file)
-    prepare_frustum_data_from_scenes(512, output_file, lyftdf=level5data, token_filename=token_file, scenes=range(5))
+    prepare_frustum_data_from_scenes(100000, output_file, lyftdf=level5data, token_filename=token_file, scenes=range(5))
