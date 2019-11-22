@@ -19,20 +19,17 @@ from skimage.io import imread
 
 import argparse
 
-parser = argparse.ArgumentParser()
 
+from config_tool import get_paths
 
-parser.add_argument('--data_path',default='/Users/kanhua/Downloads/3d-object-detection-for-autonomous-vehicles',help='dataset path')
-parser.add_argument('--artifact_path',default='/Users/kanhua/Downloads/3d-object-detection-for-autonomous-vehicles/artifacts',help='artifacts path')
-FLAGS=parser.parse_args()
 
 tlc = TLClassifier()
 
 # Load the dataset
 # Adjust the dataroot parameter below to point to your local dataset path.
 # The correct dataset path contains at least the following four folders (or similar): images, lidar, maps, v1.0.1-train
-DATA_PATH = FLAGS.data_path
-ARTIFACT_PATH = FLAGS.artifact_path
+
+DATA_PATH,ARTIFACT_PATH,_=get_paths()
 
 level5data_snapshot_file = "level5data.pickle"
 
@@ -1150,7 +1147,7 @@ def prepare_frustum_data_from_scenes(num_entries_to_get: int,
 
 if __name__ == "__main__":
     total_scenes=181
-    batch=10
+    batch=1
     batch_num=int(total_scenes/batch)
     for idx in range(batch_num):
         opt_file_pat="lyft_frustum_{}.pickle".format(idx)
