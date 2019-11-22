@@ -1,4 +1,4 @@
-DATA_DIR="/dltraining/artifacts/lyft_val_4.pickle"
+DATA_DIR="/dltraining/artifacts/lyft_frustum_0.pickle"
 MODEL_LOG_DIR="/dltraining/log_v1"
 RESTORE_MODEL_PATH="/dltraining/log_v1/model.ckpt"
 python train.py --gpu 0 --model frustum_pointnets_v1 --log_dir $MODEL_LOG_DIR --num_point 1024 \
