@@ -50,6 +50,8 @@ def read_frustum_pointnet_output(ldt: LyftDataset, inference_pickle_file, token_
         if annotation_token_list:
             ldt.get('sample_annotation', annotation_token_list[0])
 
+    print("lengh of sample token:",len(sample_token_list))
+    print("lengh of ps list:",len(ps_list))
     assert len(sample_token_list) == len(ps_list)
 
     boxes = []
