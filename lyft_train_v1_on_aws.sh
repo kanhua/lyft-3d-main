@@ -1,4 +1,3 @@
-DATA_DIR="/dltraining/artifacts/lyft_frustum_0.pickle"
 MODEL_LOG_DIR="/dltraining/log_v1"
 RESTORE_MODEL_PATH="/dltraining/log_v1/model.ckpt"
 for VALUE in {0..15} # leave three sets of data for evaluation
@@ -9,5 +8,6 @@ do
                   --max_epoch 5 --batch_size 32 --decay_step 800000 \
                   --decay_rate 0.5 --data_dir $data_file --restore_model_path $RESTORE_MODEL_PATH
 done
-zip -r /dltraining/log_v1_temp.zip /dltraining/log_v1/
+DATETIME_STR=`date +"%Y-%m-%dT%T"`
+zip -r /dltraining/log_v1_$DATETIME_STR.zip /dltraining/log_v1/
 
