@@ -19,9 +19,7 @@ from skimage.io import imread
 
 import argparse
 
-
 from config_tool import get_paths
-
 
 tlc = TLClassifier()
 
@@ -29,7 +27,7 @@ tlc = TLClassifier()
 # Adjust the dataroot parameter below to point to your local dataset path.
 # The correct dataset path contains at least the following four folders (or similar): images, lidar, maps, v1.0.1-train
 
-DATA_PATH,ARTIFACT_PATH,_=get_paths()
+DATA_PATH, ARTIFACT_PATH, _ = get_paths()
 
 level5data_snapshot_file = "level5data.pickle"
 
@@ -39,29 +37,31 @@ if os.path.exists(os.path.join(DATA_PATH, level5data_snapshot_file)):
 else:
 
     level5data = LyftDataset(data_path=DATA_PATH,
-                             json_path=os.path.join(DATA_PATH,'data/'),
+                             json_path=os.path.join(DATA_PATH, 'data/'),
                              verbose=True)
     with open(os.path.join(DATA_PATH, level5data_snapshot_file), 'wb') as fp:
         pickle.dump(level5data, fp)
 
-default_train_file=DATA_PATH+"train.csv"
-def parse_train_csv(data_file=default_train_file,with_score=False):
+default_train_file = DATA_PATH + "train.csv"
+
+
+def parse_train_csv(data_file=default_train_file, with_score=False):
     train = pd.read_csv(data_file)
 
     object_columns = ['sample_id', 'object_id', 'center_x', 'center_y', 'center_z',
                       'width', 'length', 'height', 'yaw', 'class_name']
     objects = []
-    col_num=8
+    col_num = 8
     if with_score:
-        col_num=9
+        col_num = 9
     for sample_id, ps in tqdm(train.values[:]):
-        if type(ps)!=str:
+        if type(ps) != str:
             continue
         object_params = ps.split()
         n_objects = len(object_params)
         for i in range(n_objects // col_num):
             if with_score:
-                score,x, y, z, w, l, h, yaw, c = tuple(object_params[i * 9: (i + 1) * 9])
+                score, x, y, z, w, l, h, yaw, c = tuple(object_params[i * 9: (i + 1) * 9])
             else:
                 x, y, z, w, l, h, yaw, c = tuple(object_params[i * 8: (i + 1) * 8])
             objects.append([sample_id, i, float(x), float(y), float(z), float(w), float(l), float(h), yaw, c])
@@ -71,8 +71,33 @@ def parse_train_csv(data_file=default_train_file,with_score=False):
     )
     return train_objects
 
+def parse_string_to_box(ps, with_score=True)->List[Box]:
 
-def extract_single_box(train_objects, idx,lyftd:LyftDataset) -> Box:
+    col_num = 8
+    if with_score:
+        col_num = 9
+
+    object_params = ps.split()
+    n_objects = len(object_params)
+    boxes=[]
+    for i in range(n_objects // col_num):
+        if with_score:
+            score, x, y, z, w, l, h, yaw, c = tuple(object_params[i * 9: (i + 1) * 9])
+        else:
+            x, y, z, w, l, h, yaw, c = tuple(object_params[i * 8: (i + 1) * 8])
+
+        orient_q=Quaternion(axis=[0,0,1],angle=float(yaw))
+        center_pos=[float(x),float(y),float(z)]
+        wlh=[float(w),float(l),float(h)]
+        obj_name=c
+        boxes.append(Box(center=center_pos,size=wlh,orientation=orient_q,name=obj_name))
+
+    return boxes
+
+
+
+
+def extract_single_box(train_objects, idx, lyftd: LyftDataset) -> Box:
     first_train_id, first_train_sample_box = get_train_data_sample_token_and_box(idx, train_objects)
 
     first_train_sample = lyftd.get('sample', first_train_id)
@@ -80,7 +105,7 @@ def extract_single_box(train_objects, idx,lyftd:LyftDataset) -> Box:
     sample_data_token = first_train_sample['data']['LIDAR_TOP']
 
     first_train_sample_box = transform_box_from_world_to_sensor_coordinates(first_train_sample_box,
-                                                                            sample_data_token,lyftd )
+                                                                            sample_data_token, lyftd)
 
     return first_train_sample_box, sample_data_token
 
@@ -399,10 +424,10 @@ def get_pc_in_image_fov(point_cloud_token: str, camera_type: str, lyftd: LyftDat
     filetered lindar points array projected onto image plane, LidarPointCloud object transformed to camera coordinate, 2D image array
     """
 
-    if camera_type in ['CAM_FRONT','CAM_BACK']:
+    if camera_type in ['CAM_FRONT', 'CAM_BACK']:
         cam_token = extract_other_sensor_token(camera_type, point_cloud_token, lyftd)
     else:
-        cam_token=camera_type
+        cam_token = camera_type
 
     lidar_file_path = lyftd.get_sample_data_path(point_cloud_token)
     lpc = LidarPointCloud.from_file(lidar_file_path)
@@ -916,7 +941,7 @@ def estimate_point_cloud_intensity(point_clouds_in_box):
 
 
 def select_annotation_boxes(sample_token, lyftd: LyftDataset, box_vis_level: BoxVisibility = BoxVisibility.ALL,
-                            camera_type=['CAM_FRONT','CAM_BACK']) -> (str, str, Box):
+                            camera_type=['CAM_FRONT', 'CAM_BACK']) -> (str, str, Box):
     """
     Select annotations that is a camera image defined by box_vis_level
 
@@ -942,11 +967,8 @@ def select_annotation_boxes(sample_token, lyftd: LyftDataset, box_vis_level: Box
                 yield sample_token, cam_token, box_in_world_coord
 
 
-
-
-
 def select_2d_annotation_boxes(ldf: LyftDataset, classifier, sample_token,
-                               camera_type=['CAM_FRONT','CAM_BACK']) -> (str, str, np.ndarray):
+                               camera_type=['CAM_FRONT', 'CAM_BACK']) -> (str, str, np.ndarray):
     sample_record = ldf.get('sample', sample_token)
 
     cams = [key for key in sample_record["data"].keys() if "CAM" in key]
@@ -980,6 +1002,7 @@ def get_all_boxes_in_single_scene(scene_number, from_rgb_detection, ldf: LyftDat
         sample_token = next_sample_token
 
     return results
+
 
 def get_all_boxes_in_scenes(scene_numbers: List, lyftd: LyftDataset, from_rgb_detection: bool):
     results = []
@@ -1020,16 +1043,16 @@ def prepare_frustum_data_from_scenes(num_entries_to_get: int,
     object_of_interest_name = ['car', 'pedestrian', 'cyclist']
 
     results = get_all_boxes_in_scenes(scenes, lyftd=lyftdf, from_rgb_detection=from_rgb_detection)
-    with open("temp_results.pickle",'wb') as fp:
-        pickle.dump(results,fp)
+    with open("temp_results.pickle", 'wb') as fp:
+        pickle.dump(results, fp)
 
     all_results_num = len(results)
 
-    num_entries_to_get=min(num_entries_to_get,all_results_num)
-    print("number of entries to get:",num_entries_to_get)
+    num_entries_to_get = min(num_entries_to_get, all_results_num)
+    print("number of entries to get:", num_entries_to_get)
     with tqdm(total=num_entries_to_get) as counter:
         while num_entries_to_obtained < num_entries_to_get:
-            if data_idx > (len(results)-1):
+            if data_idx > (len(results) - 1):
                 break
 
             result = results[data_idx]
@@ -1046,7 +1069,8 @@ def prepare_frustum_data_from_scenes(num_entries_to_get: int,
             try:
                 if not from_rgb_detection:
                     box3d_pts_3d, box_2d_pts, frustum_angle, heading_angle, label, point_clouds_in_box, size_lwh = get_single_frustum_pointnet_input(
-                        bounding_box, camera_token, lidar_data_token, lyftd=lyftdf, from_rgb_detection=from_rgb_detection)
+                        bounding_box, camera_token, lidar_data_token, lyftd=lyftdf,
+                        from_rgb_detection=from_rgb_detection)
                 else:
                     box_2d_pts, frustum_angle, point_clouds_in_box = get_single_frustum_pointnet_input(bounding_2d_box,
                                                                                                        camera_token,
@@ -1146,13 +1170,14 @@ def prepare_frustum_data_from_scenes(num_entries_to_get: int,
 
 
 if __name__ == "__main__":
-    total_scenes=181
-    batch=10
-    batch_num=int(total_scenes/batch)
+    total_scenes = 181
+    batch = 10
+    batch_num = int(total_scenes / batch)
     for idx in range(1):
-        opt_file_pat="lyft_frustum_{}.pickle".format(idx)
-        token_file_pat="lyft_frustum_token_{}.pickle".format(idx)
-        output_file = os.path.join(ARTIFACT_PATH,opt_file_pat)
-        token_file = os.path.join(ARTIFACT_PATH,token_file_pat)
+        opt_file_pat = "lyft_frustum_{}.pickle".format(idx)
+        token_file_pat = "lyft_frustum_token_{}.pickle".format(idx)
+        output_file = os.path.join(ARTIFACT_PATH, opt_file_pat)
+        token_file = os.path.join(ARTIFACT_PATH, token_file_pat)
         # prepare_frustum_data_from_traincsv(64, output_file)
-        prepare_frustum_data_from_scenes(36, output_file, lyftdf=level5data, token_filename=token_file, scenes=range(idx*batch,(idx+1)*batch))
+        prepare_frustum_data_from_scenes(36, output_file, lyftdf=level5data, token_filename=token_file,
+                                         scenes=range(idx * batch, (idx + 1) * batch))
