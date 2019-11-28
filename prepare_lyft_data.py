@@ -429,9 +429,6 @@ def get_pc_in_image_fov(point_cloud_token: str, camera_type: str, lyftd: LyftDat
     else:
         cam_token = camera_type
 
-    lidar_file_path = lyftd.get_sample_data_path(point_cloud_token)
-    lpc = LidarPointCloud.from_file(lidar_file_path)
-
     # _, _, img, mask = map_pointcloud_to_image(point_cloud_token, cam_token)
     img, lpc, pc_2d_array = project_point_clouds_to_image(cam_token, point_cloud_token, lyftd)
 
@@ -535,7 +532,7 @@ def mask_points(points: np.ndarray, xmin,
     return mask
 
 
-def project_point_clouds_to_image(camera_token: str, pointsensor_token: str, lyftd: LyftDataset):
+def project_point_clouds_to_image(camera_token: str, pointsensor_token: str, lyftd: LyftDataset,use_multisweep=False):
     """
 
     :param camera_token:
@@ -547,7 +544,12 @@ def project_point_clouds_to_image(camera_token: str, pointsensor_token: str, lyf
     pointsensor = lyftd.get("sample_data", pointsensor_token)
     pcl_path = lyftd.data_path / pointsensor["filename"]
     assert pointsensor["sensor_modality"] == "lidar"
-    pc = LidarPointCloud.from_file(pcl_path)
+    if use_multisweep:
+        sample_of_pc_record=lyftd.get("sample",cam['sample_token'])
+        pc=LidarPointCloud.from_file_multisweep(lyftd,sample_of_pc_record,chan='LIDAR_TOP',
+                                                ref_chan='LIDAR_TOP')
+    else:
+        pc = LidarPointCloud.from_file(pcl_path)
     im = Image.open(str(lyftd.data_path / cam["filename"]))
     # Points live in the point sensor frame. So they need to be transformed via global to the image plane.
     # First step: transform the point-cloud to the ego vehicle frame for the timestamp of the sweep.
@@ -916,7 +918,8 @@ def get_single_frustum_pointnet_input(bounding_box, camera_token, lidar_data_tok
     else:
         xmin, xmax, ymin, ymax = bounding_box
     frustum_angle = get_frustum_angle(lyftd, camera_token, xmax, xmin, ymax, ymin)
-    estimate_point_cloud_intensity(point_clouds_in_box)
+    #estimate_point_cloud_intensity(point_clouds_in_box)
+    point_clouds_in_box=point_clouds_in_box[0:3,:]
     point_clouds_in_box = np.transpose(point_clouds_in_box)
     box_2d_pts = np.array([xmin, ymin, xmax, ymax])
 
@@ -1097,7 +1100,7 @@ def prepare_frustum_data_from_scenes(num_entries_to_get: int,
                 id_list.append(data_idx)
                 box2d_list.append(box_2d_pts)
 
-                assert point_clouds_in_box.shape[1] == 4
+                assert point_clouds_in_box.shape[1] == 3
                 # assert point_clouds_in_box.shape[0] >0
                 input_list.append(point_clouds_in_box)
 

@@ -170,7 +170,7 @@ def parse_output_to_tensors(output, end_points):
 # --------------------------------------
 # Shared subgraphs for v1 and v2 models
 # --------------------------------------
-
+NUM_CHANNEL=3
 def placeholder_inputs(batch_size, num_point):
     ''' Get useful placeholder tensors.
     Input:
@@ -180,7 +180,7 @@ def placeholder_inputs(batch_size, num_point):
         TF placeholders for inputs and ground truths
     '''
     pointclouds_pl = tf.placeholder(tf.float32,
-        shape=(batch_size, num_point, 4))
+        shape=(batch_size, num_point, NUM_CHANNEL))
     one_hot_vec_pl = tf.placeholder(tf.float32, shape=(batch_size, 3))
 
     # labels_pl is for segmentation label

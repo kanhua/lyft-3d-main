@@ -6,7 +6,8 @@ do
   echo $data_file
   python train.py --gpu 1 --model frustum_pointnets_v1 --log_dir $MODEL_LOG_DIR --num_point 1024 \
                   --max_epoch 5 --batch_size 32 --decay_step 800000 \
-                  --decay_rate 0.5 --data_dir $data_file --restore_model_path $RESTORE_MODEL_PATH
+                  --decay_rate 0.5 --data_dir $data_file --restore_model_path $RESTORE_MODEL_PATH \
+                  --no_intensity
 done
 DATETIME_STR=`date +"%Y-%m-%dT%T"`
 zip -r /dltraining/log_v1_$DATETIME_STR.zip /dltraining/log_v1/
