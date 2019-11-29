@@ -547,7 +547,7 @@ def project_point_clouds_to_image(camera_token: str, pointsensor_token: str, lyf
     if use_multisweep:
         sample_of_pc_record=lyftd.get("sample",cam['sample_token'])
         pc,_=LidarPointCloud.from_file_multisweep(lyftd,sample_of_pc_record,chan='LIDAR_TOP',
-                                                ref_chan='LIDAR_TOP')
+                                                ref_chan='LIDAR_TOP',num_sweeps=5)
     else:
         pc = LidarPointCloud.from_file(pcl_path)
     im = Image.open(str(lyftd.data_path / cam["filename"]))
