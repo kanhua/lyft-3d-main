@@ -1009,7 +1009,7 @@ def get_all_boxes_in_single_scene(scene_number, from_rgb_detection, ldf: LyftDat
 
 def get_all_boxes_in_scenes(scene_numbers: List, lyftd: LyftDataset, from_rgb_detection: bool):
     results = []
-    for scene_num in tqdm(scene_numbers):
+    for scene_num in scene_numbers:
         sub_results = get_all_boxes_in_single_scene(scene_num, from_rgb_detection=from_rgb_detection, ldf=lyftd)
         results.extend(sub_results)
     return results
@@ -1046,89 +1046,85 @@ def prepare_frustum_data_from_scenes(num_entries_to_get: int,
     object_of_interest_name = ['car', 'pedestrian', 'cyclist']
 
     results = get_all_boxes_in_scenes(scenes, lyftd=lyftdf, from_rgb_detection=from_rgb_detection)
-    with open("temp_results.pickle", 'wb') as fp:
-        pickle.dump(results, fp)
 
     all_results_num = len(results)
 
     num_entries_to_get = min(num_entries_to_get, all_results_num)
     print("number of entries to get:", num_entries_to_get)
-    with tqdm(total=num_entries_to_get) as counter:
-        while num_entries_to_obtained < num_entries_to_get:
-            if data_idx > (len(results) - 1):
-                break
+    while num_entries_to_obtained < num_entries_to_get:
+        if data_idx > (len(results) - 1):
+            break
 
-            result = results[data_idx]
+        result = results[data_idx]
 
+        if not from_rgb_detection:
+            sample_token, camera_token, bounding_box = result
+        else:
+            sample_token, camera_token, bounding_2d_box, score, class_idx = result
+
+        sample_record = lyftdf.get('sample', sample_token)
+
+        lidar_data_token = sample_record['data']['LIDAR_TOP']
+
+        try:
             if not from_rgb_detection:
-                sample_token, camera_token, bounding_box = result
+                box3d_pts_3d, box_2d_pts, frustum_angle, heading_angle, label, point_clouds_in_box, size_lwh = get_single_frustum_pointnet_input(
+                    bounding_box, camera_token, lidar_data_token, lyftd=lyftdf,
+                    from_rgb_detection=from_rgb_detection)
             else:
-                sample_token, camera_token, bounding_2d_box, score, class_idx = result
-
-            sample_record = lyftdf.get('sample', sample_token)
-
-            lidar_data_token = sample_record['data']['LIDAR_TOP']
-
-            try:
-                if not from_rgb_detection:
-                    box3d_pts_3d, box_2d_pts, frustum_angle, heading_angle, label, point_clouds_in_box, size_lwh = get_single_frustum_pointnet_input(
-                        bounding_box, camera_token, lidar_data_token, lyftd=lyftdf,
-                        from_rgb_detection=from_rgb_detection)
-                else:
-                    box_2d_pts, frustum_angle, point_clouds_in_box = get_single_frustum_pointnet_input(bounding_2d_box,
-                                                                                                       camera_token,
-                                                                                                       lidar_data_token,
-                                                                                                       lyftd=lyftdf,
-                                                                                                       from_rgb_detection=from_rgb_detection)
-            except ValueError:
-                print("skpped data", data_idx)
-                data_idx += 1
-                continue
-
-            # determine select criteria
-            select_data_flag = False
-
-            if not from_rgb_detection:
-                if point_clouds_in_box.shape[0] > 0 and (bounding_box.name in object_of_interest_name) and np.sum(
-                        label) > pt_thres:
-                    select_data_flag = True
-            else:
-                if point_clouds_in_box.shape[0] > 0:
-                    select_data_flag = True
-
-            if select_data_flag:
-                id_list.append(data_idx)
-                box2d_list.append(box_2d_pts)
-
-                assert point_clouds_in_box.shape[1] == 3
-                # assert point_clouds_in_box.shape[0] >0
-                input_list.append(point_clouds_in_box)
-
-                if not from_rgb_detection:
-                    label_list.append(label)
-                    box3d_size_list.append(size_lwh)
-                    heading_list.append(heading_angle)
-                    annotation_token_list.append(bounding_box.token)
-                    assert box3d_pts_3d.shape == (8, 3)
-                    box3d_list.append(box3d_pts_3d)  # 3D bounding box projected onto camera coordinates
-
-                if not from_rgb_detection:
-                    type_list.append(bounding_box.name)
-                else:
-                    type_list.append(object_of_interest_name[int(class_idx)])
-
-                frustum_angle_list.append(frustum_angle)
-                sample_token_list.append(sample_token)
-
-                camera_data_token_list.append(camera_token)
-
-                if from_rgb_detection:
-                    prob_list.append(score)
-
-                num_entries_to_obtained += 1
-                counter.update(num_entries_to_obtained)
-
+                box_2d_pts, frustum_angle, point_clouds_in_box = get_single_frustum_pointnet_input(bounding_2d_box,
+                                                                                                   camera_token,
+                                                                                                   lidar_data_token,
+                                                                                                   lyftd=lyftdf,
+                                                                                                   from_rgb_detection=from_rgb_detection)
+        except ValueError:
+            print("skpped data", data_idx)
             data_idx += 1
+            continue
+
+        # determine select criteria
+        select_data_flag = False
+
+        if not from_rgb_detection:
+            if point_clouds_in_box.shape[0] > 0 and (bounding_box.name in object_of_interest_name) and np.sum(
+                    label) > pt_thres:
+                select_data_flag = True
+        else:
+            if point_clouds_in_box.shape[0] > 0:
+                select_data_flag = True
+
+        if select_data_flag:
+            id_list.append(data_idx)
+            box2d_list.append(box_2d_pts)
+
+            assert point_clouds_in_box.shape[1] == 3
+            # assert point_clouds_in_box.shape[0] >0
+            input_list.append(point_clouds_in_box)
+
+            if not from_rgb_detection:
+                label_list.append(label)
+                box3d_size_list.append(size_lwh)
+                heading_list.append(heading_angle)
+                annotation_token_list.append(bounding_box.token)
+                assert box3d_pts_3d.shape == (8, 3)
+                box3d_list.append(box3d_pts_3d)  # 3D bounding box projected onto camera coordinates
+
+            if not from_rgb_detection:
+                type_list.append(bounding_box.name)
+            else:
+                type_list.append(object_of_interest_name[int(class_idx)])
+
+            frustum_angle_list.append(frustum_angle)
+            sample_token_list.append(sample_token)
+
+            camera_data_token_list.append(camera_token)
+
+            if from_rgb_detection:
+                prob_list.append(score)
+
+            num_entries_to_obtained += 1
+
+        data_idx += 1
 
     # check that everything is implemented
     if not from_rgb_detection:
@@ -1177,7 +1173,7 @@ def get_frustum_data_by_batch(idx,batch):
     output_file = os.path.join(ARTIFACT_PATH, opt_file_pat)
     token_file = os.path.join(ARTIFACT_PATH, token_file_pat)
     # prepare_frustum_data_from_traincsv(64, output_file)
-    prepare_frustum_data_from_scenes(36, output_file, lyftdf=level5data, token_filename=token_file,
+    prepare_frustum_data_from_scenes(100000, output_file, lyftdf=level5data, token_filename=token_file,
                                      scenes=range(idx * batch, (idx + 1) * batch))
 
 
@@ -1185,13 +1181,13 @@ if __name__ == "__main__":
 
     from multiprocessing import Pool
     total_scenes = 181
-    batch_size = 10
+    batch_size = 5
     def batch_func(idx):
         get_frustum_data_by_batch(idx,batch_size)
     #batch_num = int(total_scenes / batch_size)
     #for idx in range(18):
     #    get_frustum_data_by_batch(idx, batch_size)
     with Pool(6) as p:
-        p.map(batch_func,range(18))
+        p.map(batch_func,range(36))
 
 
