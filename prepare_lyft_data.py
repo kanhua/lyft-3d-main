@@ -532,7 +532,7 @@ def mask_points(points: np.ndarray, xmin,
     return mask
 
 
-def project_point_clouds_to_image(camera_token: str, pointsensor_token: str, lyftd: LyftDataset,use_multisweep=False):
+def project_point_clouds_to_image(camera_token: str, pointsensor_token: str, lyftd: LyftDataset,use_multisweep=True):
     """
 
     :param camera_token:
