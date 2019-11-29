@@ -1171,16 +1171,27 @@ def prepare_frustum_data_from_scenes(num_entries_to_get: int,
         pickle.dump(camera_data_token_list, fp)
         pickle.dump(type_list, fp)
 
+def get_frustum_data_by_batch(idx,batch):
+    opt_file_pat = "lyft_frustum_{}.pickle".format(idx)
+    token_file_pat = "lyft_frustum_token_{}.pickle".format(idx)
+    output_file = os.path.join(ARTIFACT_PATH, opt_file_pat)
+    token_file = os.path.join(ARTIFACT_PATH, token_file_pat)
+    # prepare_frustum_data_from_traincsv(64, output_file)
+    prepare_frustum_data_from_scenes(36, output_file, lyftdf=level5data, token_filename=token_file,
+                                     scenes=range(idx * batch, (idx + 1) * batch))
+
 
 if __name__ == "__main__":
+
+    from multiprocessing import Pool
     total_scenes = 181
-    batch = 10
-    batch_num = int(total_scenes / batch)
-    for idx in range(18):
-        opt_file_pat = "lyft_frustum_{}.pickle".format(idx)
-        token_file_pat = "lyft_frustum_token_{}.pickle".format(idx)
-        output_file = os.path.join(ARTIFACT_PATH, opt_file_pat)
-        token_file = os.path.join(ARTIFACT_PATH, token_file_pat)
-        # prepare_frustum_data_from_traincsv(64, output_file)
-        prepare_frustum_data_from_scenes(1000000, output_file, lyftdf=level5data, token_filename=token_file,
-                                         scenes=range(idx * batch, (idx + 1) * batch))
+    batch_size = 10
+    def batch_func(idx):
+        get_frustum_data_by_batch(idx,batch_size)
+    #batch_num = int(total_scenes / batch_size)
+    #for idx in range(18):
+    #    get_frustum_data_by_batch(idx, batch_size)
+    with Pool(6) as p:
+        p.map(batch_func,range(18))
+
+

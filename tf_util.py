@@ -77,7 +77,7 @@ def conv1d(inputs,
     stddev: float, stddev for truncated_normal init
     weight_decay: float
     activation_fn: function
-    bn: bool, whether to use batch norm
+    bn: bool, whether to use batch_size norm
     bn_decay: float or float tensor variable in [0,1]
     is_training: bool Tensor variable
 
@@ -145,7 +145,7 @@ def conv2d(inputs,
     stddev: float, stddev for truncated_normal init
     weight_decay: float
     activation_fn: function
-    bn: bool, whether to use batch norm
+    bn: bool, whether to use batch_size norm
     bn_decay: float or float tensor variable in [0,1]
     is_training: bool Tensor variable
 
@@ -211,7 +211,7 @@ def conv2d_transpose(inputs,
     stddev: float, stddev for truncated_normal init
     weight_decay: float
     activation_fn: function
-    bn: bool, whether to use batch norm
+    bn: bool, whether to use batch_size norm
     bn_decay: float or float tensor variable in [0,1]
     is_training: bool Tensor variable
 
@@ -291,7 +291,7 @@ def conv3d(inputs,
     stddev: float, stddev for truncated_normal init
     weight_decay: float
     activation_fn: function
-    bn: bool, whether to use batch norm
+    bn: bool, whether to use batch_size norm
     bn_decay: float or float tensor variable in [0,1]
     is_training: bool Tensor variable
 
@@ -477,7 +477,7 @@ def batch_norm_template_unused(inputs, is_training, scope, moments_dims, bn_deca
       moments_dims:  a list of ints, indicating dimensions for moments calculation
       bn_decay:      float or float tensor variable, controling moving average weight
   Return:
-      normed:        batch-normalized maps
+      normed:        batch_size-normalized maps
   """
   with tf.variable_scope(scope) as sc:
     num_channels = inputs.get_shape()[-1].value
@@ -496,7 +496,7 @@ def batch_norm_template_unused(inputs, is_training, scope, moments_dims, bn_deca
                                lambda: ema.apply([batch_mean, batch_var]),
                                lambda: tf.no_op())
     
-    # Update moving average and return current batch's avg and var.
+    # Update moving average and return current batch_size's avg and var.
     def mean_var_with_update():
       with tf.control_dependencies([ema_apply_op]):
         return tf.identity(batch_mean), tf.identity(batch_var)
@@ -521,7 +521,7 @@ def batch_norm_template(inputs, is_training, scope, moments_dims_unused, bn_deca
       bn_decay:      float or float tensor variable, controling moving average weight
       data_format:   'NHWC' or 'NCHW'
   Return:
-      normed:        batch-normalized maps
+      normed:        batch_size-normalized maps
   """
   bn_decay = bn_decay if bn_decay is not None else 0.9
   return tf.contrib.layers.batch_norm(inputs, 
@@ -540,7 +540,7 @@ def batch_norm_for_fc(inputs, is_training, bn_decay, scope):
       bn_decay:    float or float tensor variable, controling moving average weight
       scope:       string, variable scope
   Return:
-      normed:      batch-normalized maps
+      normed:      batch_size-normalized maps
   """
   return batch_norm_template(inputs, is_training, scope, [0,], bn_decay)
 
@@ -555,7 +555,7 @@ def batch_norm_for_conv1d(inputs, is_training, bn_decay, scope, data_format):
       scope:       string, variable scope
       data_format: 'NHWC' or 'NCHW'
   Return:
-      normed:      batch-normalized maps
+      normed:      batch_size-normalized maps
   """
   return batch_norm_template(inputs, is_training, scope, [0,1], bn_decay, data_format)
 
@@ -572,7 +572,7 @@ def batch_norm_for_conv2d(inputs, is_training, bn_decay, scope, data_format):
       scope:       string, variable scope
       data_format: 'NHWC' or 'NCHW'
   Return:
-      normed:      batch-normalized maps
+      normed:      batch_size-normalized maps
   """
   return batch_norm_template(inputs, is_training, scope, [0,1,2], bn_decay, data_format)
 
@@ -586,7 +586,7 @@ def batch_norm_for_conv3d(inputs, is_training, bn_decay, scope):
       bn_decay:    float or float tensor variable, controling moving average weight
       scope:       string, variable scope
   Return:
-      normed:      batch-normalized maps
+      normed:      batch_size-normalized maps
   """
   return batch_norm_template(inputs, is_training, scope, [0,1,2,3], bn_decay)
 

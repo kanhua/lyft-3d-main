@@ -29,7 +29,7 @@ parser.add_argument('--num_point', type=int, default=1024, help='Point Number [d
 parser.add_argument('--model', default='frustum_pointnets_v1', help='Model name [default: frustum_pointnets_v1]')
 parser.add_argument('--model_path', default=DEFAULT_MODEL_CHECKPOINT_PATH,
                     help='model checkpoint file path [default: {}]'.format(DEFAULT_MODEL_CHECKPOINT_PATH))
-parser.add_argument('--batch_size', type=int, default=32, help='batch size for inference [default: 32]')
+parser.add_argument('--batch_size', type=int, default=32, help='batch_size size for inference [default: 32]')
 parser.add_argument('--output', default='test_results', help='output file/folder name [default: test_results]')
 parser.add_argument('--data_path', default=None, help='frustum dataset pickle filepath [default: None]')
 parser.add_argument('--from_rgb_detection', action='store_true', help='test from dataset files from rgb detection.')
@@ -101,7 +101,7 @@ def softmax(x):
 
 
 def inference(sess, ops, pc, one_hot_vec, batch_size):
-    ''' Run inference for frustum pointnets in batch mode '''
+    ''' Run inference for frustum pointnets in batch_size mode '''
     assert pc.shape[0] % batch_size == 0
     num_batches = int(pc.shape[0] / batch_size)
     logits = np.zeros((pc.shape[0], pc.shape[1], NUM_CLASSES))

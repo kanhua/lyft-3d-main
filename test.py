@@ -30,7 +30,7 @@ parser.add_argument('--num_point', type=int, default=1024, help='Point Number [d
 parser.add_argument('--model', default='frustum_pointnets_v1', help='Model name [default: frustum_pointnets_v1]')
 parser.add_argument('--model_path', default='log/model.ckpt',
                     help='model checkpoint file path [default: log/model.ckpt]')
-parser.add_argument('--batch_size', type=int, default=32, help='batch size for inference [default: 32]')
+parser.add_argument('--batch_size', type=int, default=32, help='batch_size size for inference [default: 32]')
 parser.add_argument('--output', default='test_results', help='output file/folder name [default: test_results]')
 parser.add_argument('--data_path', default=None, help='frustum dataset pickle filepath [default: None]')
 parser.add_argument('--from_rgb_detection', action='store_true', help='test from dataset files from rgb detection.')
@@ -148,7 +148,7 @@ def inference(sess, ops, pc, one_hot_vec, batch_size):
         mask_mean_prob = mask_mean_prob / np.sum(batch_seg_mask, 1)  # B,
         heading_prob = np.max(softmax(batch_heading_scores), 1)  # B
         size_prob = np.max(softmax(batch_size_scores), 1)  # B,
-        # batch score includes the score of segmentation mask accuracy, heading, and size
+        # batch_size score includes the score of segmentation mask accuracy, heading, and size
         batch_scores = np.log(mask_mean_prob) + np.log(heading_prob) + np.log(size_prob)
         scores[start_idx:end_idx] = batch_scores
         # Finished computing scores
@@ -234,7 +234,7 @@ def test_from_rgb_detection(output_filename, result_dir=None):
     batch_one_hot_to_feed = np.zeros((batch_size, 3))
     sess, ops = get_session_and_ops(batch_size=batch_size, num_point=NUM_POINT)
     for batch_idx in range(num_batches):
-        print('batch idx: %d' % (batch_idx))
+        print('batch_size idx: %d' % (batch_idx))
         start_idx = batch_idx * batch_size
         end_idx = min(len(TEST_DATASET), (batch_idx + 1) * batch_size)
         cur_batch_size = end_idx - start_idx
@@ -250,7 +250,7 @@ def test_from_rgb_detection(output_filename, result_dir=None):
             with open(check_file, 'wb') as fp:
                 pickle.dump({'pcl': batch_data, 'ohv': batch_one_hot_vec}, fp)
 
-        # Run one batch inference
+        # Run one batch_size inference
         batch_output, batch_center_pred, \
         batch_hclass_pred, batch_hres_pred, \
         batch_sclass_pred, batch_sres_pred, batch_scores = \
@@ -322,7 +322,7 @@ def test(output_filename, result_dir=None):
     sess, ops = get_session_and_ops(batch_size=batch_size, num_point=NUM_POINT)
     correct_cnt = 0
     for batch_idx in range(num_batches):
-        print('batch idx: %d' % (batch_idx))
+        print('batch_size idx: %d' % (batch_idx))
 
         start_idx = batch_idx * batch_size
         end_idx = min(len(TEST_DATASET), (batch_idx + 1) * batch_size)

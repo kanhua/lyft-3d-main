@@ -106,10 +106,10 @@ def train():
 
             is_training_pl = tf.placeholder(tf.bool, shape=())
             
-            # Note the global_step=batch parameter to minimize. 
-            # That tells the optimizer to increment the 'batch' parameter
+            # Note the global_step=batch_size parameter to minimize.
+            # That tells the optimizer to increment the 'batch_size' parameter
             # for you every time it trains.
-            batch = tf.get_variable('batch', [],
+            batch = tf.get_variable('batch_size', [],
                 initializer=tf.constant_initializer(0), trainable=False)
             bn_decay = get_bn_decay(batch)
             tf.summary.scalar('bn_decay', bn_decay)

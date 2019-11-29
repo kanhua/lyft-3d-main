@@ -9,8 +9,8 @@ import numpy as np
 def get_batch(dataset, idxs, start_idx, end_idx,
               num_point, num_channel,
               from_rgb_detection=False):
-    ''' Prepare batch data for training/evaluation.
-    batch size is determined by start_idx-end_idx
+    ''' Prepare batch_size data for training/evaluation.
+    batch_size size is determined by start_idx-end_idx
 
     Input:
         dataset: an instance of FrustumDataset class
