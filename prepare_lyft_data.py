@@ -1187,7 +1187,7 @@ if __name__ == "__main__":
     #batch_num = int(total_scenes / batch_size)
     #for idx in range(18):
     #    get_frustum_data_by_batch(idx, batch_size)
-    with Pool(6) as p:
+    with Pool(7) as p:
         p.map(batch_func,range(36))
 
 
