@@ -1,4 +1,4 @@
-DATA_FILE="/Users/kanhua/Dropbox/Programming/lyft-3d-main/artifact/lyft_val_3.pickle"
+DATA_FILE="lyft_frustum_0.pickle"
 MODEL_LOG_DIR="./log_v1_no_intensity/"
 RESTORE_MODEL_PATH="./log_v1_no_intensity/model.ckpt"
 
