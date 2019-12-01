@@ -71,30 +71,28 @@ def parse_train_csv(data_file=default_train_file, with_score=False):
     )
     return train_objects
 
-def parse_string_to_box(ps, with_score=True)->List[Box]:
 
+def parse_string_to_box(ps, with_score=True) -> List[Box]:
     col_num = 8
     if with_score:
         col_num = 9
 
     object_params = ps.split()
     n_objects = len(object_params)
-    boxes=[]
+    boxes = []
     for i in range(n_objects // col_num):
         if with_score:
             score, x, y, z, w, l, h, yaw, c = tuple(object_params[i * 9: (i + 1) * 9])
         else:
             x, y, z, w, l, h, yaw, c = tuple(object_params[i * 8: (i + 1) * 8])
 
-        orient_q=Quaternion(axis=[0,0,1],angle=float(yaw))
-        center_pos=[float(x),float(y),float(z)]
-        wlh=[float(w),float(l),float(h)]
-        obj_name=c
-        boxes.append(Box(center=center_pos,size=wlh,orientation=orient_q,name=obj_name))
+        orient_q = Quaternion(axis=[0, 0, 1], angle=float(yaw))
+        center_pos = [float(x), float(y), float(z)]
+        wlh = [float(w), float(l), float(h)]
+        obj_name = c
+        boxes.append(Box(center=center_pos, size=wlh, orientation=orient_q, name=obj_name))
 
     return boxes
-
-
 
 
 def extract_single_box(train_objects, idx, lyftd: LyftDataset) -> Box:
@@ -532,7 +530,7 @@ def mask_points(points: np.ndarray, xmin,
     return mask
 
 
-def project_point_clouds_to_image(camera_token: str, pointsensor_token: str, lyftd: LyftDataset,use_multisweep=True):
+def project_point_clouds_to_image(camera_token: str, pointsensor_token: str, lyftd: LyftDataset, use_multisweep=False):
     """
 
     :param camera_token:
@@ -545,9 +543,9 @@ def project_point_clouds_to_image(camera_token: str, pointsensor_token: str, lyf
     pcl_path = lyftd.data_path / pointsensor["filename"]
     assert pointsensor["sensor_modality"] == "lidar"
     if use_multisweep:
-        sample_of_pc_record=lyftd.get("sample",cam['sample_token'])
-        pc,_=LidarPointCloud.from_file_multisweep(lyftd,sample_of_pc_record,chan='LIDAR_TOP',
-                                                ref_chan='LIDAR_TOP',num_sweeps=5)
+        sample_of_pc_record = lyftd.get("sample", cam['sample_token'])
+        pc, _ = LidarPointCloud.from_file_multisweep(lyftd, sample_of_pc_record, chan='LIDAR_TOP',
+                                                     ref_chan='LIDAR_TOP', num_sweeps=5)
     else:
         pc = LidarPointCloud.from_file(pcl_path)
     im = Image.open(str(lyftd.data_path / cam["filename"]))
@@ -918,8 +916,8 @@ def get_single_frustum_pointnet_input(bounding_box, camera_token, lidar_data_tok
     else:
         xmin, xmax, ymin, ymax = bounding_box
     frustum_angle = get_frustum_angle(lyftd, camera_token, xmax, xmin, ymax, ymin)
-    #estimate_point_cloud_intensity(point_clouds_in_box)
-    point_clouds_in_box=point_clouds_in_box[0:3,:]
+    # estimate_point_cloud_intensity(point_clouds_in_box)
+    point_clouds_in_box = point_clouds_in_box[0:3, :]
     point_clouds_in_box = np.transpose(point_clouds_in_box)
     box_2d_pts = np.array([xmin, ymin, xmax, ymax])
 
@@ -944,7 +942,7 @@ def estimate_point_cloud_intensity(point_clouds_in_box):
 
 
 def select_annotation_boxes(sample_token, lyftd: LyftDataset, box_vis_level: BoxVisibility = BoxVisibility.ALL,
-                            camera_type=['CAM_FRONT', 'CAM_BACK']) -> (str, str, Box):
+                            camera_type=['CAM_FRONT', 'CAM_BACK','CAM_FRONT_LEFT','CAM_FRONT_RIGHT','CAM_BACK_RIGHT','CAM_BACK_LEFT']) -> (str, str, Box):
     """
     Select annotations that is a camera image defined by box_vis_level
 
@@ -1167,7 +1165,8 @@ def prepare_frustum_data_from_scenes(num_entries_to_get: int,
         pickle.dump(camera_data_token_list, fp)
         pickle.dump(type_list, fp)
 
-def get_frustum_data_by_batch(idx,batch):
+
+def get_frustum_data_by_batch(idx, batch):
     opt_file_pat = "lyft_frustum_{}.pickle".format(idx)
     token_file_pat = "lyft_frustum_token_{}.pickle".format(idx)
     output_file = os.path.join(ARTIFACT_PATH, opt_file_pat)
@@ -1178,16 +1177,19 @@ def get_frustum_data_by_batch(idx,batch):
 
 
 if __name__ == "__main__":
-
     from multiprocessing import Pool
+
     total_scenes = 181
     batch_size = 5
+    parallel_proc_num = 7
+
+
     def batch_func(idx):
-        get_frustum_data_by_batch(idx,batch_size)
-    #batch_num = int(total_scenes / batch_size)
-    #for idx in range(18):
+        get_frustum_data_by_batch(idx, batch_size)
+
+
+    # batch_num = int(total_scenes / batch_size)
+    # for idx in range(18):
     #    get_frustum_data_by_batch(idx, batch_size)
-    with Pool(7) as p:
-        p.map(batch_func,range(36))
-
-
+    with Pool(parallel_proc_num) as p:
+        p.map(batch_func, range(36))
