@@ -1180,8 +1180,8 @@ if __name__ == "__main__":
     from multiprocessing import Pool
 
     total_scenes = 181
-    batch_size = 5
-    parallel_proc_num = 7
+    batch_size = 10
+    parallel_proc_num = 5
 
 
     def batch_func(idx):
@@ -1192,4 +1192,4 @@ if __name__ == "__main__":
     # for idx in range(18):
     #    get_frustum_data_by_batch(idx, batch_size)
     with Pool(parallel_proc_num) as p:
-        p.map(batch_func, range(36))
+        p.map(batch_func, range(18))

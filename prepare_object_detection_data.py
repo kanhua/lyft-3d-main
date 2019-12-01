@@ -1,5 +1,7 @@
 from typing import List
 
+import tensorflow as tf
+tf.compat.v1.enable_eager_execution()
 from lyft_dataset_sdk.lyftdataset import LyftDataset, LyftDatasetExplorer
 from lyft_dataset_sdk.utils.data_classes import LidarPointCloud, Box, Quaternion
 from lyft_dataset_sdk.utils.geometry_utils import view_points, transform_matrix, \
@@ -7,6 +9,11 @@ from lyft_dataset_sdk.utils.geometry_utils import view_points, transform_matrix,
 from prepare_lyft_data import level5data
 from utils import dataset_util
 import numpy as np
+import hashlib
+import io
+import pathlib
+import PIL.Image
+
 
 object_classes = ['car', 'pedestrian', 'animal', 'other_vehicle', 'bus', 'motorcycle', 'truck', 'emergency_vehicle',
                   'bicycle']
@@ -62,7 +69,7 @@ def select_annotation_boxes(sample_token, lyftd: LyftDataset, box_vis_level: Box
         img_height = sd_record['height']  # typically 1080
 
         CORNER_NUMBER = 4
-        corner_list = np.empty(np.shape(len(boxes_in_sensor_coord), CORNER_NUMBER))
+        corner_list = np.empty((len(boxes_in_sensor_coord), CORNER_NUMBER))
         for idx, box_in_sensor_coord in enumerate(boxes_in_sensor_coord):
             # For perspective transformation, the normalization should set to be True
             box_corners_on_image = view_points(box_in_sensor_coord.corners(), view=cam_intrinsic, normalize=True)
@@ -70,23 +77,40 @@ def select_annotation_boxes(sample_token, lyftd: LyftDataset, box_vis_level: Box
             corners_2d = get_2d_corners_from_projected_box_coordinates(box_corners_on_image)
             corner_list[idx, :] = corners_2d
 
-        yield image_filepath, corner_list, box_in_sensor_coord
+        yield image_filepath, cam_token, corner_list, boxes_in_sensor_coord,img_width,img_height
 
-
-def create_tf_feature(image_file_path: str,
+def create_tf_feature(image_file_path: pathlib.PosixPath,
                       camera_token: str,
                       corner_list: np.ndarray,
-                      image_width: int, image_heigth: int, boxes: List[Box]):
+                      image_width: int,
+                      image_heigth: int, boxes: List[Box])->tf.train.Example:
+
 
     box_feature_list = [(box.name, box.token, object_idx_dict[box.name]) for box in boxes]
-    box_feature_list =map(list,zip(*box_feature_list))
+    box_feature_list =list(map(list,zip(*box_feature_list)))
 
+    BOX_NAME_INDEX=0
+    BOX_TOKEN_INDEX=1
+    BOX_NAME_ID_INDEX=2
+    classes_text_list=[s.encode('utf-8') for s in box_feature_list[BOX_NAME_INDEX]]
+    anns_token_list=[s.encode('utf-8') for s in box_feature_list[BOX_TOKEN_INDEX]]
+
+
+    with tf.gfile.GFile(image_file_path.as_posix(), 'rb') as fid:
+        encoded_jpg = fid.read()
+    encoded_jpg_io = io.BytesIO(encoded_jpg)
+    image = PIL.Image.open(encoded_jpg_io)
+    if image.format != 'JPEG':
+        raise ValueError('Image format not JPEG')
+    key = hashlib.sha256(encoded_jpg).hexdigest()
+
+    file_basename=os.path.basename(image_file_path)
 
     feature_dict = {
         'image/height': dataset_util.int64_feature(image_heigth),
         'image/width': dataset_util.int64_feature(image_width),
         'image/filename': dataset_util.bytes_feature(
-            image_file_path.encode('utf8')),
+            file_basename.encode('utf8')),
         'image/source_id': dataset_util.bytes_feature(
             camera_token.encode('utf8')),
         'image/key/sha256': dataset_util.bytes_feature(key.encode('utf8')),
@@ -96,12 +120,69 @@ def create_tf_feature(image_file_path: str,
         'image/object/bbox/xmax': dataset_util.float_list_feature(corner_list[:, 1]),
         'image/object/bbox/ymin': dataset_util.float_list_feature(corner_list[:, 2]),
         'image/object/bbox/ymax': dataset_util.float_list_feature(corner_list[:, 3]),
-        'image/object/class/text': dataset_util.bytes_list_feature(box_feature_list[0]),
+        'image/object/class/text': dataset_util.bytes_list_feature(classes_text_list),
         'image/object/class/label': dataset_util.int64_list_feature(box_feature_list[2]),
-        'image/object/class/anns_id':dataset_util.bytes_list_feature(box_feature_list[1])
+        'image/object/class/anns_id':dataset_util.bytes_list_feature(anns_token_list)
     }
 
-    return feature_dict
+    example=tf.train.Example(features=tf.train.Features(feature=feature_dict))
+
+    return example
+
+
+def parse_protobuf_message(message:str):
+
+    keys_to_features = {
+        'image/encoded':
+            tf.FixedLenFeature((), tf.string, default_value=''),
+        'image/format':
+            tf.FixedLenFeature((), tf.string, default_value='jpeg'),
+        'image/filename':
+            tf.FixedLenFeature((), tf.string, default_value=''),
+        'image/key/sha256':
+            tf.FixedLenFeature((), tf.string, default_value=''),
+        'image/source_id':
+            tf.FixedLenFeature((), tf.string, default_value=''),
+        'image/height':
+            tf.FixedLenFeature((), tf.int64, default_value=1),
+        'image/width':
+            tf.FixedLenFeature((), tf.int64, default_value=1),
+        # Image-level labels.
+        'image/class/text':
+            tf.VarLenFeature(tf.string),
+        'image/class/label':
+            tf.VarLenFeature(tf.int64),
+        # Object boxes and classes.
+        'image/object/bbox/xmin':
+            tf.VarLenFeature(tf.float32),
+        'image/object/bbox/xmax':
+            tf.VarLenFeature(tf.float32),
+        'image/object/bbox/ymin':
+            tf.VarLenFeature(tf.float32),
+        'image/object/bbox/ymax':
+            tf.VarLenFeature(tf.float32),
+        'image/object/class/label':
+            tf.VarLenFeature(tf.int64),
+        'image/object/class/text':
+            tf.VarLenFeature(tf.string),
+        'image/object/area':
+            tf.VarLenFeature(tf.float32),
+        'image/object/is_crowd':
+            tf.VarLenFeature(tf.int64),
+        'image/object/difficult':
+            tf.VarLenFeature(tf.int64),
+        'image/object/group_of':
+            tf.VarLenFeature(tf.int64),
+        'image/object/weight':
+            tf.VarLenFeature(tf.float32),
+
+    }
+    parsed_example=tf.io.parse_single_example(message,keys_to_features)
+    print(str(parsed_example['image/filename'].numpy()))
+    print(parsed_example['image/object/bbox/xmin'].values.numpy())
+
+
+
 
 
 if __name__ == "__main__":
@@ -117,8 +198,15 @@ if __name__ == "__main__":
 
     df = pd.read_csv(default_train_file)
 
-    for id in df['Id']:
+    for image_filepath, cam_token, corners,boxes,img_width,img_height in select_annotation_boxes(first_sample_token, level5data):
+        tf_example=create_tf_feature(image_file_path=image_filepath,camera_token=cam_token,
+                                     corner_list=corners,image_width=img_width,image_heigth=img_height,boxes=boxes)
+        example_message=tf_example.SerializeToString()
+        parse_protobuf_message(example_message)
 
-        for p, c in select_annotation_boxes(first_sample_token, level5data):
-            print(p)
-            print(c)
+
+
+
+
+
+
