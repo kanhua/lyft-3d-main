@@ -1,6 +1,7 @@
 from typing import List
 
 import tensorflow as tf
+
 tf.compat.v1.enable_eager_execution()
 from lyft_dataset_sdk.lyftdataset import LyftDataset, LyftDatasetExplorer
 from lyft_dataset_sdk.utils.data_classes import LidarPointCloud, Box, Quaternion
@@ -13,7 +14,6 @@ import hashlib
 import io
 import pathlib
 import PIL.Image
-
 
 object_classes = ['car', 'pedestrian', 'animal', 'other_vehicle', 'bus', 'motorcycle', 'truck', 'emergency_vehicle',
                   'bicycle']
@@ -77,24 +77,22 @@ def select_annotation_boxes(sample_token, lyftd: LyftDataset, box_vis_level: Box
             corners_2d = get_2d_corners_from_projected_box_coordinates(box_corners_on_image)
             corner_list[idx, :] = corners_2d
 
-        yield image_filepath, cam_token, corner_list, boxes_in_sensor_coord,img_width,img_height
+        yield image_filepath, cam_token, corner_list, boxes_in_sensor_coord, img_width, img_height
+
 
 def create_tf_feature(image_file_path: pathlib.PosixPath,
                       camera_token: str,
                       corner_list: np.ndarray,
                       image_width: int,
-                      image_heigth: int, boxes: List[Box])->tf.train.Example:
-
-
+                      image_heigth: int, boxes: List[Box]) -> tf.train.Example:
     box_feature_list = [(box.name, box.token, object_idx_dict[box.name]) for box in boxes]
-    box_feature_list =list(map(list,zip(*box_feature_list)))
+    box_feature_list = list(map(list, zip(*box_feature_list)))
 
-    BOX_NAME_INDEX=0
-    BOX_TOKEN_INDEX=1
-    BOX_NAME_ID_INDEX=2
-    classes_text_list=[s.encode('utf-8') for s in box_feature_list[BOX_NAME_INDEX]]
-    anns_token_list=[s.encode('utf-8') for s in box_feature_list[BOX_TOKEN_INDEX]]
-
+    BOX_NAME_INDEX = 0
+    BOX_TOKEN_INDEX = 1
+    BOX_NAME_ID_INDEX = 2
+    classes_text_list = [s.encode('utf-8') for s in box_feature_list[BOX_NAME_INDEX]]
+    anns_token_list = [s.encode('utf-8') for s in box_feature_list[BOX_TOKEN_INDEX]]
 
     with tf.gfile.GFile(image_file_path.as_posix(), 'rb') as fid:
         encoded_jpg = fid.read()
@@ -104,7 +102,7 @@ def create_tf_feature(image_file_path: pathlib.PosixPath,
         raise ValueError('Image format not JPEG')
     key = hashlib.sha256(encoded_jpg).hexdigest()
 
-    file_basename=os.path.basename(image_file_path)
+    file_basename = os.path.basename(image_file_path)
 
     feature_dict = {
         'image/height': dataset_util.int64_feature(image_heigth),
@@ -116,22 +114,21 @@ def create_tf_feature(image_file_path: pathlib.PosixPath,
         'image/key/sha256': dataset_util.bytes_feature(key.encode('utf8')),
         'image/encoded': dataset_util.bytes_feature(encoded_jpg),
         'image/format': dataset_util.bytes_feature('jpeg'.encode('utf8')),
-        'image/object/bbox/xmin': dataset_util.float_list_feature(corner_list[:, 0]),
-        'image/object/bbox/xmax': dataset_util.float_list_feature(corner_list[:, 1]),
-        'image/object/bbox/ymin': dataset_util.float_list_feature(corner_list[:, 2]),
-        'image/object/bbox/ymax': dataset_util.float_list_feature(corner_list[:, 3]),
+        'image/object/bbox/xmin': dataset_util.float_list_feature(corner_list[:, 0] / float(img_width)),
+        'image/object/bbox/xmax': dataset_util.float_list_feature(corner_list[:, 1] / float(img_width)),
+        'image/object/bbox/ymin': dataset_util.float_list_feature(corner_list[:, 2] / float(img_height)),
+        'image/object/bbox/ymax': dataset_util.float_list_feature(corner_list[:, 3] / float(img_height)),
         'image/object/class/text': dataset_util.bytes_list_feature(classes_text_list),
         'image/object/class/label': dataset_util.int64_list_feature(box_feature_list[2]),
-        'image/object/class/anns_id':dataset_util.bytes_list_feature(anns_token_list)
+        'image/object/class/anns_id': dataset_util.bytes_list_feature(anns_token_list)
     }
 
-    example=tf.train.Example(features=tf.train.Features(feature=feature_dict))
+    example = tf.train.Example(features=tf.train.Features(feature=feature_dict))
 
     return example
 
 
-def parse_protobuf_message(message:str):
-
+def parse_protobuf_message(message: str):
     keys_to_features = {
         'image/encoded':
             tf.FixedLenFeature((), tf.string, default_value=''),
@@ -177,18 +174,25 @@ def parse_protobuf_message(message:str):
             tf.VarLenFeature(tf.float32),
 
     }
-    parsed_example=tf.io.parse_single_example(message,keys_to_features)
-    print(str(parsed_example['image/filename'].numpy()))
-    print(parsed_example['image/object/bbox/xmin'].values.numpy())
+    parsed_example = tf.io.parse_single_example(message, keys_to_features)
+    filename = parsed_example['image/filename'].numpy().decode('UTF-8')
+    xmin = parsed_example['image/object/bbox/xmin'].values.numpy()
+    xmax = parsed_example['image/object/bbox/xmax'].values.numpy()
+    ymin = parsed_example['image/object/bbox/ymin'].values.numpy()
+    ymax = parsed_example['image/object/bbox/ymax'].values.numpy()
 
+    print(ymax.shape)
 
-
+    return filename, xmin, xmax, ymin, ymax
 
 
 if __name__ == "__main__":
     from prepare_lyft_data import get_paths
     import pandas as pd
     import os
+    from skimage.io import imread
+    from vis_util import draw_bounding_boxes_on_image_array
+    import matplotlib.pyplot as plt
 
     DATA_PATH, ARTIFACT_PATH, _ = get_paths()
 
@@ -198,15 +202,21 @@ if __name__ == "__main__":
 
     df = pd.read_csv(default_train_file)
 
-    for image_filepath, cam_token, corners,boxes,img_width,img_height in select_annotation_boxes(first_sample_token, level5data):
-        tf_example=create_tf_feature(image_file_path=image_filepath,camera_token=cam_token,
-                                     corner_list=corners,image_width=img_width,image_heigth=img_height,boxes=boxes)
-        example_message=tf_example.SerializeToString()
-        parse_protobuf_message(example_message)
+    image_dir = "/Users/kanhua/Downloads/3d-object-detection-for-autonomous-vehicles/images"
 
+    for image_filepath, cam_token, corners, boxes, img_width, img_height in select_annotation_boxes(first_sample_token,
+                                                                                                    level5data):
+        tf_example = create_tf_feature(image_file_path=image_filepath, camera_token=cam_token,
+                                       corner_list=corners, image_width=img_width, image_heigth=img_height, boxes=boxes)
+        example_message = tf_example.SerializeToString()
+        filename, xmin, xmax, ymin, ymax = parse_protobuf_message(example_message)
+        image_array = imread(os.path.join(image_dir, filename))
 
+        box = np.vstack([ymin, xmin, ymax, xmax])
+        box = np.transpose(box)
 
+        draw_bounding_boxes_on_image_array(image_array, box)
 
-
-
-
+        plt.figure()
+        plt.imshow(image_array)
+        plt.show()
