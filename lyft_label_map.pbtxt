@@ -1,0 +1,44 @@
+item {
+  id: 1
+  name: 'car'
+}
+
+item {
+  id: 2
+  name: 'pedestrian'
+}
+
+item {
+  id: 3
+  name: 'animal'
+}
+
+item {
+  id: 4
+  name: 'other_vehicle'
+}
+
+item {
+  id: 5
+  name: 'bus'
+}
+
+item {
+  id: 6
+  name: 'motorcycle'
+}
+
+item {
+  id: 7
+  name: 'truck'
+}
+
+item {
+  id: 8
+  name: 'emergency_vehicle'
+}
+
+item {
+  id: 9
+  name: 'bicycle'
+}

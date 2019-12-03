@@ -7,7 +7,7 @@ from lyft_dataset_sdk.lyftdataset import LyftDataset, LyftDatasetExplorer
 from lyft_dataset_sdk.utils.data_classes import LidarPointCloud, Box, Quaternion
 from lyft_dataset_sdk.utils.geometry_utils import view_points, transform_matrix, \
     points_in_box, BoxVisibility
-from prepare_lyft_data import level5data
+from prepare_lyft_data import level5data,get_paths
 from utils import dataset_util
 import numpy as np
 import hashlib
@@ -15,12 +15,14 @@ import io
 import pathlib
 import PIL.Image
 
+DATA_PATH, ARTIFACT_PATH, _ = get_paths()
+
 object_classes = ['car', 'pedestrian', 'animal', 'other_vehicle', 'bus', 'motorcycle', 'truck', 'emergency_vehicle',
                   'bicycle']
 
-object_idx_dict = {'car': 0, 'pedestrian': 1, 'animal': 2, 'other_vehicle': 3,
-                   'bus': 4, 'motorcycle': 5, 'truck': 6, 'emergency_vehicle': 7,
-                   'bicycle': 8}
+object_idx_dict = {'car': 1, 'pedestrian': 2, 'animal': 3, 'other_vehicle': 4,
+                   'bus': 5, 'motorcycle': 6, 'truck': 7, 'emergency_vehicle': 8,
+                   'bicycle': 9}
 
 
 def check_object_class_match():
@@ -42,7 +44,7 @@ def get_2d_corners_from_projected_box_coordinates(projected_corners: np.ndarray)
 
 
 def select_annotation_boxes(sample_token, lyftd: LyftDataset, box_vis_level: BoxVisibility = BoxVisibility.ALL,
-                            camera_type=['CAM_FRONT', 'CAM_BACK']) -> (str, str, Box):
+                            camera_type=['CAM_FRONT', 'CAM_BACK','CAM_FRONT_LEFT','CAM_FRONT_RIGHT','CAM_BACK_RIGHT','CAM_BACK_LEFT']) -> (str, str, Box):
     """
     Select annotations that is a camera image defined by box_vis_level
 
@@ -84,7 +86,7 @@ def create_tf_feature(image_file_path: pathlib.PosixPath,
                       camera_token: str,
                       corner_list: np.ndarray,
                       image_width: int,
-                      image_heigth: int, boxes: List[Box]) -> tf.train.Example:
+                      image_height: int, boxes: List[Box]) -> tf.train.Example:
     box_feature_list = [(box.name, box.token, object_idx_dict[box.name]) for box in boxes]
     box_feature_list = list(map(list, zip(*box_feature_list)))
 
@@ -105,7 +107,7 @@ def create_tf_feature(image_file_path: pathlib.PosixPath,
     file_basename = os.path.basename(image_file_path)
 
     feature_dict = {
-        'image/height': dataset_util.int64_feature(image_heigth),
+        'image/height': dataset_util.int64_feature(image_height),
         'image/width': dataset_util.int64_feature(image_width),
         'image/filename': dataset_util.bytes_feature(
             file_basename.encode('utf8')),
@@ -114,10 +116,10 @@ def create_tf_feature(image_file_path: pathlib.PosixPath,
         'image/key/sha256': dataset_util.bytes_feature(key.encode('utf8')),
         'image/encoded': dataset_util.bytes_feature(encoded_jpg),
         'image/format': dataset_util.bytes_feature('jpeg'.encode('utf8')),
-        'image/object/bbox/xmin': dataset_util.float_list_feature(corner_list[:, 0] / float(img_width)),
-        'image/object/bbox/xmax': dataset_util.float_list_feature(corner_list[:, 1] / float(img_width)),
-        'image/object/bbox/ymin': dataset_util.float_list_feature(corner_list[:, 2] / float(img_height)),
-        'image/object/bbox/ymax': dataset_util.float_list_feature(corner_list[:, 3] / float(img_height)),
+        'image/object/bbox/xmin': dataset_util.float_list_feature(corner_list[:, 0] / float(image_width)),
+        'image/object/bbox/xmax': dataset_util.float_list_feature(corner_list[:, 1] / float(image_width)),
+        'image/object/bbox/ymin': dataset_util.float_list_feature(corner_list[:, 2] / float(image_height)),
+        'image/object/bbox/ymax': dataset_util.float_list_feature(corner_list[:, 3] / float(image_height)),
         'image/object/class/text': dataset_util.bytes_list_feature(classes_text_list),
         'image/object/class/label': dataset_util.int64_list_feature(box_feature_list[2]),
         'image/object/class/anns_id': dataset_util.bytes_list_feature(anns_token_list)
@@ -185,38 +187,41 @@ def parse_protobuf_message(message: str):
 
     return filename, xmin, xmax, ymin, ymax
 
+def write_data_to_files():
+    import contextlib2
+    from dataset_tools import tf_record_creation_util
+    from tqdm import tqdm
+
+    num_shards = 60
+    output_filebase = os.path.join(ARTIFACT_PATH,'train_dataset.record')
+
+    default_train_file = os.path.join(DATA_PATH, "train.csv")
+
+    df = pd.read_csv(default_train_file)
+
+    with contextlib2.ExitStack() as tf_record_close_stack:
+        output_tfrecords = tf_record_creation_util.open_sharded_output_tfrecords(
+            tf_record_close_stack, output_filebase, num_shards)
+
+        for index in tqdm(range(df.shape[0])):
+            sample_token=df.iloc[index,0]
+            for image_filepath, cam_token, corners, boxes, img_width, img_height in select_annotation_boxes(
+                    sample_token,
+                    level5data):
+                if len(boxes)>0:
+                    tf_example = create_tf_feature(image_file_path=image_filepath, camera_token=cam_token,
+                                                   corner_list=corners, image_width=img_width, image_height=img_height,
+                                                   boxes=boxes)
+                    output_shard_index = index % num_shards
+                    output_tfrecords[output_shard_index].write(tf_example.SerializeToString())
+
+
 
 if __name__ == "__main__":
-    from prepare_lyft_data import get_paths
     import pandas as pd
     import os
     from skimage.io import imread
     from vis_util import draw_bounding_boxes_on_image_array
     import matplotlib.pyplot as plt
 
-    DATA_PATH, ARTIFACT_PATH, _ = get_paths()
-
-    first_sample_token = '24b0962e44420e6322de3f25d9e4e5cc3c7a348ec00bfa69db21517e4ca92cc8'  # this is for test
-
-    default_train_file = os.path.join(DATA_PATH, "train.csv")
-
-    df = pd.read_csv(default_train_file)
-
-    image_dir = "/Users/kanhua/Downloads/3d-object-detection-for-autonomous-vehicles/images"
-
-    for image_filepath, cam_token, corners, boxes, img_width, img_height in select_annotation_boxes(first_sample_token,
-                                                                                                    level5data):
-        tf_example = create_tf_feature(image_file_path=image_filepath, camera_token=cam_token,
-                                       corner_list=corners, image_width=img_width, image_heigth=img_height, boxes=boxes)
-        example_message = tf_example.SerializeToString()
-        filename, xmin, xmax, ymin, ymax = parse_protobuf_message(example_message)
-        image_array = imread(os.path.join(image_dir, filename))
-
-        box = np.vstack([ymin, xmin, ymax, xmax])
-        box = np.transpose(box)
-
-        draw_bounding_boxes_on_image_array(image_array, box)
-
-        plt.figure()
-        plt.imshow(image_array)
-        plt.show()
+    write_data_to_files()
