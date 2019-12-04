@@ -39,6 +39,7 @@ def test_write_and_read():
                                        corner_list=corners, image_width=img_width, image_height=img_height, boxes=boxes)
         example_message = tf_example.SerializeToString()
         filename, xmin, xmax, ymin, ymax = parse_protobuf_message(example_message)
+        print(filename)
         image_array = imread(filename)
 
         box = np.vstack([ymin, xmin, ymax, xmax])
