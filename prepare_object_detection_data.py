@@ -187,13 +187,13 @@ def parse_protobuf_message(message: str):
 
     return filename, xmin, xmax, ymin, ymax
 
-def write_data_to_files(entries_num):
+def write_data_to_files(entries_num,type='train'):
     import contextlib2
     from dataset_tools import tf_record_creation_util
     from tqdm import tqdm
 
     num_shards = 10
-    output_filebase = os.path.join(ARTIFACT_PATH,'train_dataset.record')
+    output_filebase = os.path.join(ARTIFACT_PATH,'lyft_2d_{}.record'.format(type))
 
     default_train_file = os.path.join(DATA_PATH, "train.csv")
 
@@ -228,4 +228,5 @@ if __name__ == "__main__":
     from vis_util import draw_bounding_boxes_on_image_array
     import matplotlib.pyplot as plt
 
-    write_data_to_files(300)
+    write_data_to_files(300,type= 'train')
+    write_data_to_files(300, type='val')
