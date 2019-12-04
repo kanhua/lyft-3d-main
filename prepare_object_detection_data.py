@@ -104,7 +104,7 @@ def create_tf_feature(image_file_path: pathlib.PosixPath,
         raise ValueError('Image format not JPEG')
     key = hashlib.sha256(encoded_jpg).hexdigest()
 
-    file_basename = os.path.basename(image_file_path)
+    file_basename = image_file_path.as_posix()
 
     feature_dict = {
         'image/height': dataset_util.int64_feature(image_height),
@@ -187,23 +187,27 @@ def parse_protobuf_message(message: str):
 
     return filename, xmin, xmax, ymin, ymax
 
-def write_data_to_files():
+def write_data_to_files(entries_num):
     import contextlib2
     from dataset_tools import tf_record_creation_util
     from tqdm import tqdm
 
-    num_shards = 60
+    num_shards = 10
     output_filebase = os.path.join(ARTIFACT_PATH,'train_dataset.record')
 
     default_train_file = os.path.join(DATA_PATH, "train.csv")
 
     df = pd.read_csv(default_train_file)
 
+    if entries_num is None:
+        entries_num=df.shape[0]
+
+
     with contextlib2.ExitStack() as tf_record_close_stack:
         output_tfrecords = tf_record_creation_util.open_sharded_output_tfrecords(
             tf_record_close_stack, output_filebase, num_shards)
 
-        for index in tqdm(range(df.shape[0])):
+        for index in tqdm(range(entries_num)):
             sample_token=df.iloc[index,0]
             for image_filepath, cam_token, corners, boxes, img_width, img_height in select_annotation_boxes(
                     sample_token,
@@ -224,4 +228,4 @@ if __name__ == "__main__":
     from vis_util import draw_bounding_boxes_on_image_array
     import matplotlib.pyplot as plt
 
-    write_data_to_files()
+    write_data_to_files(300)
