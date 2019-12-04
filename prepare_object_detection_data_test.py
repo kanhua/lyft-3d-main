@@ -49,3 +49,7 @@ def test_write_and_read():
         plt.figure()
         plt.imshow(image_array)
         plt.show()
+
+if __name__=="__main__":
+
+    test_write_and_read()
