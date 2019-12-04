@@ -1,3 +1,5 @@
+import tensorflow as tf
+tf.compat.v1.enable_eager_execution()
 from prepare_lyft_data import get_paths
 import pandas as pd
 import os
@@ -40,6 +42,9 @@ def test_write_and_read():
         example_message = tf_example.SerializeToString()
         filename, xmin, xmax, ymin, ymax = parse_protobuf_message(example_message)
         print(filename)
+
+        print("image height: {}".format(img_height))
+        print("image width: {}".format(img_width))
         image_array = imread(filename)
 
         box = np.vstack([ymin, xmin, ymax, xmax])
