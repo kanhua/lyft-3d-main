@@ -2,7 +2,6 @@ from typing import List
 
 import tensorflow as tf
 
-tf.compat.v1.enable_eager_execution()
 from lyft_dataset_sdk.lyftdataset import LyftDataset, LyftDatasetExplorer
 from lyft_dataset_sdk.utils.data_classes import LidarPointCloud, Box, Quaternion
 from lyft_dataset_sdk.utils.geometry_utils import view_points, transform_matrix, \
