@@ -187,37 +187,54 @@ def parse_protobuf_message(message: str):
 
     return filename, xmin, xmax, ymin, ymax
 
-def write_data_to_files(entries_num,type='train'):
+
+
+
+def write_data_to_files(entries_num):
     import contextlib2
     from dataset_tools import tf_record_creation_util
     from tqdm import tqdm
-
-    num_shards = 10
-    output_filebase = os.path.join(ARTIFACT_PATH,'lyft_2d_{}.record'.format(type))
+    from sklearn.model_selection import train_test_split
 
     default_train_file = os.path.join(DATA_PATH, "train.csv")
 
     df = pd.read_csv(default_train_file)
 
+    def save_tf_record_file(output_file_base, num_shards,sel_indices):
+        with contextlib2.ExitStack() as tf_record_close_stack:
+            output_tfrecords = tf_record_creation_util.open_sharded_output_tfrecords(
+                tf_record_close_stack, output_filebase, num_shards)
+
+            for index in tqdm(sel_indices):
+                sample_token = df.iloc[index, 0]
+                for image_filepath, cam_token, corners, boxes, img_width, img_height in select_annotation_boxes(
+                        sample_token,
+                        level5data):
+                    if len(boxes) > 0:
+                        tf_example = create_tf_feature(image_file_path=image_filepath, camera_token=cam_token,
+                                                       corner_list=corners, image_width=img_width,
+                                                       image_height=img_height,
+                                                       boxes=boxes)
+                        output_shard_index = index % num_shards
+                        output_tfrecords[output_shard_index].write(tf_example.SerializeToString())
+
+
+    all_train_index=np.arange(entries_num)
+
+    train_indices,val_indices=train_test_split(all_train_index,test_size=0.2)
+
+    num_shards = 10
+    type='train'
+    output_filebase = os.path.join(ARTIFACT_PATH,'lyft_2d_{}.record'.format(type))
+    save_tf_record_file(output_file_base=output_filebase,num_shards=num_shards,sel_indices=train_indices)
+
+    num_shards= 10
+    type='val'
+    output_filebase = os.path.join(ARTIFACT_PATH,'lyft_2d_{}.record'.format(type))
+    save_tf_record_file(output_file_base=output_filebase, num_shards=num_shards, sel_indices=val_indices)
+
     if entries_num is None:
         entries_num=df.shape[0]
-
-
-    with contextlib2.ExitStack() as tf_record_close_stack:
-        output_tfrecords = tf_record_creation_util.open_sharded_output_tfrecords(
-            tf_record_close_stack, output_filebase, num_shards)
-
-        for index in tqdm(range(entries_num)):
-            sample_token=df.iloc[index,0]
-            for image_filepath, cam_token, corners, boxes, img_width, img_height in select_annotation_boxes(
-                    sample_token,
-                    level5data):
-                if len(boxes)>0:
-                    tf_example = create_tf_feature(image_file_path=image_filepath, camera_token=cam_token,
-                                                   corner_list=corners, image_width=img_width, image_height=img_height,
-                                                   boxes=boxes)
-                    output_shard_index = index % num_shards
-                    output_tfrecords[output_shard_index].write(tf_example.SerializeToString())
 
 
 
@@ -228,5 +245,4 @@ if __name__ == "__main__":
     from vis_util import draw_bounding_boxes_on_image_array
     import matplotlib.pyplot as plt
 
-    write_data_to_files(300,type= 'train')
-    write_data_to_files(300, type='val')
+    write_data_to_files(300)
