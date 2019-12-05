@@ -186,9 +186,6 @@ def parse_protobuf_message(message: str):
 
     return filename, xmin, xmax, ymin, ymax
 
-
-
-
 def write_data_to_files(entries_num):
     import contextlib2
     from dataset_tools import tf_record_creation_util
@@ -217,6 +214,9 @@ def write_data_to_files(entries_num):
                         output_shard_index = index % num_shards
                         output_tfrecords[output_shard_index].write(tf_example.SerializeToString())
 
+    if entries_num is None:
+        entries_num=df.shape[0]
+
 
     all_train_index=np.arange(entries_num)
 
@@ -232,8 +232,6 @@ def write_data_to_files(entries_num):
     output_filebase = os.path.join(ARTIFACT_PATH,'lyft_2d_{}.record'.format(type))
     save_tf_record_file(output_file_base=output_filebase, num_shards=num_shards, sel_indices=val_indices)
 
-    if entries_num is None:
-        entries_num=df.shape[0]
 
 
 
