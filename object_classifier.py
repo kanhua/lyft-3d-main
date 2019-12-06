@@ -142,7 +142,8 @@ class TLClassifier(object):
         return sel_box
 
     def detect_multi_object(self, image_np, score_threshold=[0.8, 0.8, 0.8],
-                            target_classes=[3, 1, 2],
+                            #target_classes=[3, 1, 2], coco dataset id
+                            target_classes=[1,2,9], # my own model
                             rearrange_to_pointnet_convention=True,
                             output_target_class=False):
         """
