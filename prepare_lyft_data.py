@@ -21,7 +21,10 @@ import argparse
 
 from config_tool import get_paths
 
-tlc = TLClassifier()
+try:
+    tlc = TLClassifier()
+except:
+    print("Error occured when importing object classification models")
 
 # Load the dataset
 # Adjust the dataroot parameter below to point to your local dataset path.
@@ -422,7 +425,7 @@ def get_pc_in_image_fov(point_cloud_token: str, camera_type: str, lyftd: LyftDat
     filetered lindar points array projected onto image plane, LidarPointCloud object transformed to camera coordinate, 2D image array
     """
 
-    if camera_type in ['CAM_FRONT', 'CAM_BACK']:
+    if 'CAM' in camera_type:
         cam_token = extract_other_sensor_token(camera_type, point_cloud_token, lyftd)
     else:
         cam_token = camera_type
@@ -969,7 +972,7 @@ def select_annotation_boxes(sample_token, lyftd: LyftDataset, box_vis_level: Box
 
 
 def select_2d_annotation_boxes(ldf: LyftDataset, classifier, sample_token,
-                               camera_type=['CAM_FRONT', 'CAM_BACK']) -> (str, str, np.ndarray):
+                               camera_type=['CAM_FRONT', 'CAM_BACK','CAM_FRONT_LEFT','CAM_FRONT_RIGHT','CAM_BACK_RIGHT','CAM_BACK_LEFT']) -> (str, str, np.ndarray):
     sample_record = ldf.get('sample', sample_token)
 
     cams = [key for key in sample_record["data"].keys() if "CAM" in key]

@@ -7,4 +7,10 @@
 4. Unzip and extract the model file to this folder as ```./log_v1```
 5. Run inference using ```sh infer_train_eval_data.sh```
 6. See visualized anaysis in  ```Check train-val data detection.ipynb``` (This file is not finished yet.)
- 
+
+
+## Workflow of running inference on AWS
+
+1. Run ```test_prepare_data_from_rgb_detection.py``` to run RGB detection and generate pickle data
+2. Run frusutm-point net inference: ```run_pointnet_inference_on_aws.sh```
+3. Generate pred csv data: ```infer_train_eval_data_on_aws.sh``` 

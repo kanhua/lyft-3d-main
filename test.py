@@ -37,6 +37,7 @@ parser.add_argument('--from_rgb_detection', action='store_true', help='test from
 parser.add_argument('--idx_path', default=None,
                     help='filename of txt where each line is a data idx, used for rgb detection -- write <id>.txt for all frames. [default: None]')
 parser.add_argument('--dump_result', action='store_true', help='If true, also dump results to .pickle file')
+parser.add_argument('--no_intensity', action='store_true', help='Only use XYZ for training')
 FLAGS = parser.parse_args()
 
 # Set training configurations
@@ -46,7 +47,7 @@ GPU_INDEX = FLAGS.gpu
 NUM_POINT = FLAGS.num_point
 MODEL = importlib.import_module(FLAGS.model)
 NUM_CLASSES = 2
-NUM_CHANNEL = 4
+NUM_CHANNEL = 3 if FLAGS.no_intensity else 4 # point feature channel
 
 # Load Frustum Datasets.
 TEST_DATASET = provider.FrustumDataset(npoints=NUM_POINT, split='val',
@@ -245,10 +246,10 @@ def test_from_rgb_detection(output_filename, result_dir=None):
         batch_data_to_feed[0:cur_batch_size, ...] = batch_data
         batch_one_hot_to_feed[0:cur_batch_size, :] = batch_one_hot_vec
 
-        if batch_idx == 0:
-            check_file = "/Users/kanhua/Downloads/3d-object-detection-for-autonomous-vehicles/artifacts/kitti_val_pc.pickle"
-            with open(check_file, 'wb') as fp:
-                pickle.dump({'pcl': batch_data, 'ohv': batch_one_hot_vec}, fp)
+        #if batch_idx == 0:
+        #    check_file = "/Users/kanhua/Downloads/3d-object-detection-for-autonomous-vehicles/artifacts/kitti_val_pc.pickle"
+        #    with open(check_file, 'wb') as fp:
+        #        pickle.dump({'pcl': batch_data, 'ohv': batch_one_hot_vec}, fp)
 
         # Run one batch_size inference
         batch_output, batch_center_pred, \

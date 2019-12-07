@@ -10,7 +10,6 @@ from prepare_lyft_data import level5data
 from lyft_dataset_sdk.eval.detection.mAP_evaluation import Box3D, get_ious
 from lyft_dataset_sdk.utils.data_classes import Box
 from typing import List
-from test_data_loader import level5testdata
 from absl import flags, app
 
 FLAGS = flags.FLAGS
@@ -66,6 +65,7 @@ def main(argv):
     if data_name=='train':
         data=level5data
     elif data_name=='test':
+        from test_data_loader import level5testdata
         data=level5testdata
 
     pred_boxes, gt_boxes, sample_token_list = read_frustum_pointnet_output(data,
