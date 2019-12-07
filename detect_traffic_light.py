@@ -21,7 +21,9 @@ DOWNLOAD_BASE = 'http://download.tensorflow.org/models/object_detection/'
 # Path to frozen detection graph. This is the actual model that is used for the object detection.
 model_path = "./"
 #PATH_TO_CKPT = model_path + MODEL_NAME + '/frozen_inference_graph.pb'
-PATH_TO_CKPT="/dltraining/lyft_object_detection_models/models/faster_rcnn_resnet101/model_log/frozen_inference_graph.pb"
+#PATH_TO_CKPT="/dltraining/lyft_object_detection_models/models/faster_rcnn_resnet101/model_export/frozen_inference_graph.pb"
+from config_tool import get_object_detection_model_path
+PATH_TO_CKPT=get_object_detection_model_path()
 
 def download_model():
     import six.moves.urllib as urllib
@@ -38,7 +40,8 @@ def download_model():
 
 def load_graph():
     if not os.path.exists(PATH_TO_CKPT):
-        download_model()
+        raise FileNotFoundError("model not exists")
+        #download_model()
 
     detection_graph = tf.Graph()
     with detection_graph.as_default():

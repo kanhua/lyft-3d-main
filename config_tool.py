@@ -59,6 +59,14 @@ def get_paths()->(str,str,str):
            config_data['path_config']['model_checkpoint']
 
 
+def get_object_detection_model_path():
+
+    config_data=load_user_config_data()
+
+    return config_data['path_config']['object_detection_model_path']
+
+
+
 
 
 
