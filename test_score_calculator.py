@@ -8,7 +8,10 @@ pred_file = "/Users/kanhua/Dropbox/Programming/lyft-3d-main/train_val_pred.csv"
 
 sc = ScoreCalculator(pred_csv_file=pred_file, gt_csv_file=gt_file)
 
-
 scores=sc.calculate_single_entry(1)
 
+mean_score=sc.calculate_mean_ious()
+
 print(scores)
+
+print(mean_score)

@@ -60,7 +60,20 @@ class ScoreCalculator(object):
         for box in pred_3d_boxes:
             ious.append(get_ious(gt_3d_boxes, box))
 
-        return ious
+        return np.array(ious)
+
+    def calculate_mean_ious(self):
+
+        all_max_ious=None
+        for i in range(self.pred_df.shape[0]):
+            all_ious = self.calculate_single_entry(i)
+            max_ious = np.max(all_ious, axis=0)
+            if all_max_ious is not None:
+                all_max_ious=np.concatenate((all_max_ious,max_ious.ravel()))
+            else:
+                all_max_ious=max_ious.ravel()
+
+        return np.mean(all_max_ious)
 
 
 def write_output_csv(pred_boxes: List[Box], sample_token_list, output_csv_file: str):
