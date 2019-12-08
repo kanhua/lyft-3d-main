@@ -75,25 +75,33 @@ def parse_train_csv(data_file=default_train_file, with_score=False):
     return train_objects
 
 
-def parse_string_to_box(ps, with_score=True) -> List[Box]:
+from lyft_dataset_sdk.eval.detection.mAP_evaluation import Box3D
+
+def parse_string_to_box(ps, with_score=True,to_3dbox=False,sample_token=None) -> List[Box]:
+    boxes = []
+
     col_num = 8
     if with_score:
         col_num = 9
 
     object_params = ps.split()
     n_objects = len(object_params)
-    boxes = []
     for i in range(n_objects // col_num):
         if with_score:
             score, x, y, z, w, l, h, yaw, c = tuple(object_params[i * 9: (i + 1) * 9])
         else:
             x, y, z, w, l, h, yaw, c = tuple(object_params[i * 8: (i + 1) * 8])
+            score=1.0   # assume ground truth
 
         orient_q = Quaternion(axis=[0, 0, 1], angle=float(yaw))
         center_pos = [float(x), float(y), float(z)]
         wlh = [float(w), float(l), float(h)]
         obj_name = c
-        boxes.append(Box(center=center_pos, size=wlh, orientation=orient_q, name=obj_name))
+        if to_3dbox:
+            boxes.append(Box3D(translation=center_pos, size=wlh, rotation=orient_q.q, name=obj_name,score=score,
+                               sample_token=sample_token))
+        else:
+            boxes.append(Box(center=center_pos, size=wlh, orientation=orient_q, name=obj_name,score=score))
 
     return boxes
 

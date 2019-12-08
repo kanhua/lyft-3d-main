@@ -11,13 +11,14 @@ from lyft_dataset_sdk.eval.detection.mAP_evaluation import Box3D, get_ious
 from lyft_dataset_sdk.utils.data_classes import Box
 from typing import List
 from absl import flags, app
+import pandas as pd
 
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("from_rgb_detection", False, "whether the frustum is generated from RGB detection")
 flags.DEFINE_string("inference_file", None, "file output from test.py")
 flags.DEFINE_string("token_file", None, "pickle file that contained the token and other information")
 flags.DEFINE_string("pred_file", None, "output csv file name")
-flags.DEFINE_string("data_name","train","name of the data: train or test")
+flags.DEFINE_string("data_name", "train", "name of the data: train or test")
 
 
 def box_to_box3D(box: Box, sample_token: str):
@@ -25,6 +26,41 @@ def box_to_box3D(box: Box, sample_token: str):
                   size=box.wlh, rotation=box.orientation.q, name=box.name, score=box.score)
 
     return box3d
+
+
+from prepare_lyft_data import parse_string_to_box
+
+
+class ScoreCalculator(object):
+
+    def __init__(self, pred_csv_file: str, gt_csv_file: str):
+        self.pred_df = pd.read_csv(pred_csv_file, index_col="Id")
+
+        self.gt_df = pd.read_csv(gt_csv_file, index_col="Id")
+
+    def get_box_string(self, df, sample_token: str):
+        boxes_str = df.loc[sample_token, 'PredictionString']
+        return boxes_str
+
+    def calculate_single_entry(self, index: int):
+        # Make boxes of gt_box
+        sample_token_to_eval = self.pred_df.index[index]
+
+        pred_box_string = self.get_box_string(self.pred_df, sample_token_to_eval)
+        gt_box_string = self.get_box_string(self.gt_df, sample_token_to_eval)
+
+        pred_3d_boxes = parse_string_to_box(pred_box_string, with_score=True, to_3dbox=True,
+                                            sample_token=sample_token_to_eval)
+
+        gt_3d_boxes = parse_string_to_box(gt_box_string, with_score=False, to_3dbox=True,
+                                          sample_token=sample_token_to_eval)
+
+        # calculate average
+        ious = []
+        for box in pred_3d_boxes:
+            ious.append(get_ious(gt_3d_boxes, box))
+
+        return ious
 
 
 def write_output_csv(pred_boxes: List[Box], sample_token_list, output_csv_file: str):
@@ -61,12 +97,12 @@ def main(argv):
     token_pickle_file = FLAGS.token_file
     pred_csv_file = FLAGS.pred_file
     FROM_RGB_DETECTION = FLAGS.from_rgb_detection
-    data_name=FLAGS.data_name
-    if data_name=='train':
-        data=level5data
-    elif data_name=='test':
+    data_name = FLAGS.data_name
+    if data_name == 'train':
+        data = level5data
+    elif data_name == 'test':
         from test_data_loader import level5testdata
-        data=level5testdata
+        data = level5testdata
 
     pred_boxes, gt_boxes, sample_token_list = read_frustum_pointnet_output(data,
                                                                            inference_pickle_file=inference_pickle_file,
