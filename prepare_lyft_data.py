@@ -89,6 +89,7 @@ def parse_string_to_box(ps, with_score=True,to_3dbox=False,sample_token=None) ->
     for i in range(n_objects // col_num):
         if with_score:
             score, x, y, z, w, l, h, yaw, c = tuple(object_params[i * 9: (i + 1) * 9])
+            score=float(score)
         else:
             x, y, z, w, l, h, yaw, c = tuple(object_params[i * 8: (i + 1) * 8])
             score=1.0   # assume ground truth
