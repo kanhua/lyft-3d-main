@@ -1088,7 +1088,7 @@ def prepare_frustum_data_from_scenes(num_entries_to_get: int,
                                                                                                    lyftd=lyftdf,
                                                                                                    from_rgb_detection=from_rgb_detection)
         except ValueError:
-            print("skpped data", data_idx)
+            print("skipped data", data_idx)
             data_idx += 1
             continue
 
