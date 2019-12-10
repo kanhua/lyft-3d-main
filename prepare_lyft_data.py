@@ -1006,10 +1006,10 @@ def get_all_boxes_in_single_scene(scene_number, from_rgb_detection, ldf: LyftDat
         sample_record = ldf.get('sample', sample_token)
         if not from_rgb_detection:
             for tks in select_annotation_boxes(sample_token, lyftd=ldf):
-                results.append(tks)
+                yield tks
         else:
             for tks in select_2d_annotation_boxes(ldf, classifier=tlc, sample_token=sample_token):
-                results.append(tks)
+                yield tks
 
         next_sample_token = sample_record['next']
         sample_token = next_sample_token
@@ -1018,11 +1018,11 @@ def get_all_boxes_in_single_scene(scene_number, from_rgb_detection, ldf: LyftDat
 
 
 def get_all_boxes_in_scenes(scene_numbers: List, lyftd: LyftDataset, from_rgb_detection: bool):
-    results = []
     for scene_num in scene_numbers:
         sub_results = get_all_boxes_in_single_scene(scene_num, from_rgb_detection=from_rgb_detection, ldf=lyftd)
-        results.extend(sub_results)
-    return results
+        for result in sub_results:
+            yield result
+
 
 
 def prepare_frustum_data_from_scenes(num_entries_to_get: int,
@@ -1035,21 +1035,6 @@ def prepare_frustum_data_from_scenes(num_entries_to_get: int,
     pt_thres = 100  # only selects the boxes with points larger than 100 in the 3D ground truth box,
     # because the ground truth 3D box may not be covered by the field of view of camera
 
-    id_list = []  # int number
-    box2d_list = []  # [xmin,ymin,xmax,ymax]
-    box3d_list = []  # (8,3) array in rect camera coord
-    input_list = []  # channel number = 4, xyz,intensity in rect camera coord
-    label_list = []  # 1 for roi object, 0 for clutter
-    type_list = []  # string e.g. Car
-    heading_list = []  # ry (along y-axis in rect camera coord) radius of
-    # (cont.) clockwise angle from positive x axis in velo coord.
-    box3d_size_list = []  # array of l,w,h
-    frustum_angle_list = []  # angle of 2d box center from pos x-axis
-    sample_token_list = []
-    annotation_token_list = []
-    camera_data_token_list = []
-    prob_list = []
-
     data_idx = 0
     num_entries_to_obtained = 0
 
@@ -1057,16 +1042,9 @@ def prepare_frustum_data_from_scenes(num_entries_to_get: int,
 
     results = get_all_boxes_in_scenes(scenes, lyftd=lyftdf, from_rgb_detection=from_rgb_detection)
 
-    all_results_num = len(results)
+    for result in results:
 
-    num_entries_to_get = min(num_entries_to_get, all_results_num)
-    print("number of entries to get:", num_entries_to_get)
-    while num_entries_to_obtained < num_entries_to_get:
-        if data_idx > (len(results) - 1):
-            break
-
-        result = results[data_idx]
-
+        print(result)
         if not from_rgb_detection:
             sample_token, camera_token, bounding_box = result
         else:
@@ -1103,81 +1081,6 @@ def prepare_frustum_data_from_scenes(num_entries_to_get: int,
             if point_clouds_in_box.shape[0] > 0:
                 select_data_flag = True
 
-        if select_data_flag:
-            id_list.append(data_idx)
-            box2d_list.append(box_2d_pts)
-
-            assert point_clouds_in_box.shape[1] == 3
-            # assert point_clouds_in_box.shape[0] >0
-            input_list.append(point_clouds_in_box)
-
-            if not from_rgb_detection:
-                label_list.append(label)
-                box3d_size_list.append(size_lwh)
-                heading_list.append(heading_angle)
-                annotation_token_list.append(bounding_box.token)
-                assert box3d_pts_3d.shape == (8, 3)
-                box3d_list.append(box3d_pts_3d)  # 3D bounding box projected onto camera coordinates
-
-            if not from_rgb_detection:
-                type_list.append(bounding_box.name)
-            else:
-                type_list.append(object_of_interest_name[int(class_idx)])
-
-            frustum_angle_list.append(frustum_angle)
-            sample_token_list.append(sample_token)
-
-            camera_data_token_list.append(camera_token)
-
-            if from_rgb_detection:
-                prob_list.append(score)
-
-            num_entries_to_obtained += 1
-
-        data_idx += 1
-
-    # check that everything is implemented
-    if not from_rgb_detection:
-        assert len(box3d_list) > 0
-        assert len(label_list) > 0
-        assert len(heading_list) > 0
-        assert len(box3d_size_list) > 0
-    else:
-        assert len(prob_list) > 0
-
-    assert len(frustum_angle_list) > 0
-    assert len(type_list) > 0
-    assert len(id_list) > 0
-    assert len(box2d_list) > 0
-    assert len(input_list) > 0
-
-    if not from_rgb_detection:
-        with open(output_filename, 'wb') as fp:
-            pickle.dump(id_list, fp)
-            pickle.dump(box2d_list, fp)
-            pickle.dump(box3d_list, fp)
-            pickle.dump(input_list, fp)
-            pickle.dump(label_list, fp)
-            pickle.dump(type_list, fp)
-            pickle.dump(heading_list, fp)
-            pickle.dump(box3d_size_list, fp)
-            pickle.dump(frustum_angle_list, fp)
-    else:
-        with open(output_filename, 'wb') as fp:
-            pickle.dump(id_list, fp)
-            pickle.dump(box2d_list, fp)
-            pickle.dump(input_list, fp)
-            pickle.dump(type_list, fp)
-            pickle.dump(frustum_angle_list, fp)
-            pickle.dump(prob_list, fp)
-
-    with open(token_filename, 'wb') as fp:
-        pickle.dump(sample_token_list, fp)
-        pickle.dump(annotation_token_list, fp)
-        pickle.dump(camera_data_token_list, fp)
-        pickle.dump(type_list, fp)
-
-
 def get_frustum_data_by_batch(idx, batch):
     opt_file_pat = "lyft_frustum_{}.pickle".format(idx)
     token_file_pat = "lyft_frustum_token_{}.pickle".format(idx)
@@ -1204,4 +1107,4 @@ if __name__ == "__main__":
     # for idx in range(18):
     #    get_frustum_data_by_batch(idx, batch_size)
     with Pool(parallel_proc_num) as p:
-        p.map(batch_func, range(18))
+        p.map(batch_func, range(5))
