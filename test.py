@@ -107,7 +107,7 @@ def softmax(x):
 
 def inference(sess, ops, pc, one_hot_vec, batch_size):
     ''' Run inference for frustum pointnets in batch mode '''
-    #    assert pc.shape[0] % batch_size == 0
+    #    assert point_cloud_3d.shape[0] % batch_size == 0
     num_batches = math.ceil(pc.shape[0] / batch_size)
     logits = np.zeros((pc.shape[0], pc.shape[1], NUM_CLASSES))
     centers = np.zeros((pc.shape[0], 3))

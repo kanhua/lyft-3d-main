@@ -17,9 +17,8 @@ import matplotlib.pyplot as plt
 from object_classifier import TLClassifier
 from skimage.io import imread
 
-import argparse
-
 from config_tool import get_paths
+from prepare_lyft_data_v2 import get_box_yaw_angle_in_camera_coords, get_frustum_angle
 
 try:
     tlc = TLClassifier()
@@ -611,30 +610,6 @@ def transform_world_to_image_coordinate(word_coord_array, camera_token: str, lyf
     return view_points(sense_coord_array, cam_intrinsic_mtx, normalize=True)
 
 
-def transform_image_to_cam_coordinate(image_array_p: np.array, camera_token: str, lyftd: LyftDataset):
-    sd_record = lyftd.get("sample_data", camera_token)
-    cs_record = lyftd.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
-    sensor_record = lyftd.get("sensor", cs_record["sensor_token"])
-    pose_record = lyftd.get("ego_pose", sd_record["ego_pose_token"])
-
-    # inverse the viewpoint transformation
-    def normalization(input_array):
-        input_array[0:2, :] = input_array[0:2, :] * input_array[2:3, :].repeat(2, 0).reshape(2, input_array.shape[1])
-        return input_array
-
-    image_array = normalization(np.copy(image_array_p))
-    image_array = np.concatenate((image_array.ravel(), np.array([1])))
-    image_array = image_array.reshape(4, 1)
-
-    cam_intrinsic_mtx = np.array(cs_record["camera_intrinsic"])
-    view = cam_intrinsic_mtx
-    viewpad = np.eye(4)
-    viewpad[: view.shape[0], : view.shape[1]] = view
-    image_in_cam_coord = np.dot(np.linalg.inv(viewpad), image_array)
-
-    return image_in_cam_coord[0:3, :]
-
-
 def transform_image_to_world_coordinate(image_array: np.array, camera_token: str, lyftd: LyftDataset):
     """
 
@@ -725,7 +700,7 @@ def extract_pc_in_box3d(input_pc, input_box3d):
     The code and in_hull functions are copied from frustum-point on
     https://github.com/charlesq34/frustum-pointnets
 
-    :param pc: 3XN array
+    :param point_cloud_3d: 3XN array
     :param box3d: 3x8 array
     :return:
     """
@@ -747,20 +722,6 @@ def plot_cam_top_view(lpc_array_in_cam_coord, bounding_box_sensor_coord):
     ax.set_xlim([-25, 15])
     ax.set_ylim([0, 30])
     plt.show()
-
-
-def get_box_yaw_angle_in_camera_coords(box: Box):
-    """
-    Calculate the heading angle, using the convention in KITTI labels.
-
-    :param box: bouding box
-    :return:
-    """
-
-    box_corners = box.corners()
-    v = box_corners[:, 0] - box_corners[:, 4]
-    heading_angle = np.arctan2(-v[2], v[0])
-    return heading_angle
 
 
 def get_box_yaw_angle_in_world_coords(box: Box):
@@ -937,15 +898,6 @@ def get_single_frustum_pointnet_input(bounding_box, camera_token, lidar_data_tok
         return box3d_pts_3d, box_2d_pts, frustum_angle, heading_angle, label, point_clouds_in_box, size_lwh
     else:
         return box_2d_pts, frustum_angle, point_clouds_in_box
-
-
-def get_frustum_angle(lyftd: LyftDataset, cam_token, xmax, xmin, ymax, ymin):
-    random_depth = 20
-    image_center = np.array([[(xmax + xmin) / 2, (ymax + ymin) / 2, random_depth]]).T
-    image_center_in_cam_coord = transform_image_to_cam_coordinate(image_center, cam_token, lyftd)
-    assert image_center_in_cam_coord.shape[1] == 1
-    frustum_angle = -np.arctan2(image_center_in_cam_coord[2, 0], image_center_in_cam_coord[0, 0])
-    return frustum_angle
 
 
 def estimate_point_cloud_intensity(point_clouds_in_box):

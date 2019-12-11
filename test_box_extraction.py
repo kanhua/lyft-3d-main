@@ -7,8 +7,8 @@ from prepare_lyft_data import extract_single_box, \
     parse_train_csv, level5data, extract_boxed_clouds, \
     get_sample_images, get_train_data_sample_token_and_box, \
     get_pc_in_image_fov, transform_bounding_box_to_sensor_coord_and_get_corners, \
-    get_2d_corners_from_projected_box_coordinates, transform_image_to_cam_coordinate, \
-    get_sensor_to_world_transform_matrix, transform_box_from_world_to_sensor_coordinates
+    get_2d_corners_from_projected_box_coordinates, get_sensor_to_world_transform_matrix, transform_box_from_world_to_sensor_coordinates
+from prepare_lyft_data_v2 import transform_image_to_cam_coordinate
 from lyft_dataset_sdk.utils.data_classes import LidarPointCloud
 from lyft_dataset_sdk.utils.geometry_utils import view_points
 

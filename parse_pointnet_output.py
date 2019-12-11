@@ -12,11 +12,11 @@ from lyft_dataset_sdk.lyftdataset import LyftDataset
 def rotate_pc_along_y(pc, rot_angle):
     '''
     Input:
-        pc: numpy array (N,C), first 3 channels are XYZ
+        point_cloud_3d: numpy array (N,C), first 3 channels are XYZ
             z is facing forward, x is left ward, y is downward
         rot_angle: rad scalar
     Output:
-        pc: updated pc with XYZ rotated
+        point_cloud_3d: updated point_cloud_3d with XYZ rotated
     '''
     npc = np.copy(pc)
     cosval = np.cos(rot_angle)
