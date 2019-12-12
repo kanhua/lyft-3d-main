@@ -127,6 +127,19 @@ class FrustumGenerator(object):
                 box_3d_pts = np.transpose(box_in_sensor_coord.corners())
 
 
+class FrusutmPoints(object):
+    def __init__(self,box:Box,point_cloud_in_box,box_3d_pts,
+                 box_2d_pts,heading_angle,frustum_angle):
+        self.box=box
+        pass
+
+    def _get_wlh(self):
+        pass
+    
+
+
+
+
 def in_hull(p, hull):
     from scipy.spatial import Delaunay
     if not isinstance(hull, Delaunay):
