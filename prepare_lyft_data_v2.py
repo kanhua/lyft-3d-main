@@ -4,6 +4,7 @@ import numpy as np
 import os
 import pickle
 from typing import Tuple, List
+import tensorflow as tf
 from PIL import Image
 
 from lyft_dataset_sdk.lyftdataset import LyftDataset, LyftDatasetExplorer
@@ -78,6 +79,7 @@ class FrustumGenerator(object):
 
     def generate_frustums(self):
         clip_distance = 2.0
+        max_clip_distance=60
 
         for cam_key in self.camera_keys:
             camera_token = self.sample_record['data'][cam_key]
@@ -101,7 +103,7 @@ class FrustumGenerator(object):
 
                 mask = mask_points(point_cloud_in_camera_coord_2d, 0, img.size[0], ymin=0, ymax=img.size[1])
 
-                distance_mask = (point_cloud.points[2, :] > clip_distance)
+                distance_mask = (point_cloud.points[2, :] > clip_distance) & (point_cloud.points[2,:] < max_clip_distance)
 
                 mask = np.logical_and(mask, distance_mask)
 
@@ -122,22 +124,98 @@ class FrustumGenerator(object):
                 point_clouds_in_box = point_clouds_in_box[0:3, :]
                 point_clouds_in_box = np.transpose(point_clouds_in_box)
                 box_2d_pts = np.array([xmin, ymin, xmax, ymax])
-                w, l, h = box_in_sensor_coord.wlh
-                size_lwh = np.array([l, w, h])
                 box_3d_pts = np.transpose(box_in_sensor_coord.corners())
+
+                fp = FrusutmPoints(lyftd=self.lyftd,box_in_sensor_coord=box_in_sensor_coord, point_cloud_in_box=point_clouds_in_box,
+                                   box_3d_pts=box_3d_pts, box_2d_pts=box_2d_pts, heading_angle=heading_angle,
+                                   frustum_angle=frustum_angle, camera_token=camera_token,
+                                   sample_token=self.sample_record['token'])
+
+                yield fp
 
 
 class FrusutmPoints(object):
-    def __init__(self,box:Box,point_cloud_in_box,box_3d_pts,
-                 box_2d_pts,heading_angle,frustum_angle):
-        self.box=box
-        pass
+    def __init__(self, lyftd:LyftDataset,box_in_sensor_coord: Box, point_cloud_in_box, box_3d_pts,
+                 box_2d_pts, heading_angle, frustum_angle, sample_token, camera_token):
+        self.box_in_sensor_coord = box_in_sensor_coord
+        self.point_cloud_in_box = point_cloud_in_box
+        self.box_3d_pts = box_3d_pts
+        self.box_2d_pts = box_2d_pts
+        self.heading_angle = heading_angle
+        self.frustum_angle = frustum_angle
+        self.sample_token = sample_token
+        self.camera_token = camera_token
+        self.lyftd=lyftd
 
     def _get_wlh(self):
-        pass
-    
+        w, l, h = self.box_in_sensor_coord.wlh
+        size_lwh = np.array([l, w, h])
+        return size_lwh
+
+    def _flat_pointclout(self):
+        # not support lidar data with intensity yet
+        assert self.point_cloud_in_box.shape[1] == 3
+
+        return self.point_cloud_in_box.ravel()
+
+    def to_train_example(self):
+        feature_dict = {
+            'box3d_size': float_list_feature(self._get_wlh()),
+            'frustum_point_cloud': float_list_feature(self._flat_pointclout()),
+            'box_3d': float_list_feature(self)
+        }
+        example = tf.train.Example(features=tf.train.Features(feature=feature_dict))
+
+        return example
+
+    def render_point_cloud_on_image(self, ax):
+
+        sd_record = self.lyftd.get("sample_data", self.camera_token)
+        cs_record = self.lyftd.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
+
+        camera_intrinsic=np.array(cs_record['camera_intrinsic'])
+        self.box_in_sensor_coord.render(ax,view=camera_intrinsic,normalize=True)
+        projected_pts=view_points(np.transpose(self.point_cloud_in_box),view=camera_intrinsic,normalize=True)
+        ax.scatter(projected_pts[0,:],projected_pts[1,:])
+        #self.lyftd.render_pointcloud_in_image()
+
+    def render_point_cloud_top_view(self,ax,view_matrix=np.array([[1, 0, 0], [0, 0, 1], [0, 0, 0]])):
+
+        self.box_in_sensor_coord.render(ax,view=view_matrix,normalize=False)
+        projected_pts=view_points(np.transpose(self.point_cloud_in_box),view=view_matrix,normalize=False)
+        ax.scatter(projected_pts[0,:],projected_pts[1,:],s=0.1)
 
 
+
+    def render_image(self,ax):
+
+        image_path=self.lyftd.get_sample_data_path(self.camera_token)
+        import skimage
+        image_array=skimage.io.imread(image_path)
+        ax.imshow(image_array)
+
+
+
+
+
+def int64_feature(value):
+    return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+
+
+def int64_list_feature(value):
+    return tf.train.Feature(int64_list=tf.train.Int64List(value=value))
+
+
+def bytes_feature(value):
+    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+
+
+def bytes_list_feature(value):
+    return tf.train.Feature(bytes_list=tf.train.BytesList(value=value))
+
+
+def float_list_feature(value):
+    return tf.train.Feature(float_list=tf.train.FloatList(value=value))
 
 
 def in_hull(p, hull):
