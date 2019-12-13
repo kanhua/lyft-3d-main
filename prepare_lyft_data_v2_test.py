@@ -21,22 +21,23 @@ def test_plot_one_frustum():
 
     fg = FrustumGenerator(sample_token=test_sample_token, lyftd=level5data)
 
-    fig, ax = plt.subplots(1, 2)
-    prev_cam_token=None
+    ax_dict = {}
     for fp in fg.generate_frustums():
-        if prev_cam_token==None:
-            prev_cam_token=fp.camera_token
+        if fp.camera_token not in ax_dict.keys():
+            fig, ax = plt.subplots(1, 2)
+            ax_dict[fp.camera_token] = (fig, ax)
             fp.render_image(ax[0])
-        elif prev_cam_token!=fp.camera_token:
-            break
+        else:
+            ax = ax_dict[fp.camera_token][1]
 
         fp.render_point_cloud_on_image(ax[0])
 
         fp.render_point_cloud_top_view(ax[1])
 
-        prev_cam_token=fp.camera_token
-
-    plt.show()
+    for key in ax_dict.keys():
+        fig, ax = ax_dict[key]
+        channel = level5data.get("sample_data", key)['channel']
+        fig.savefig("./artifact/{}.png".format(channel))
 
 
 def test_one_scene():

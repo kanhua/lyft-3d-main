@@ -55,7 +55,7 @@ class FrustumGenerator(object):
         self.sample_record = self.lyftd.get("sample", sample_token)
         self.camera_type = camera_type
         self.camera_keys = self._get_camera_keys()
-        self.point_cloud_in_sensor_coord, self.ref_lidar_token = self._read_pointcloud(use_multisweep=False)
+        self.point_cloud_in_sensor_coord, self.ref_lidar_token = self._read_pointcloud(use_multisweep=True)
 
     def _get_camera_keys(self):
         cams = [key for key in self.sample_record["data"].keys() if "CAM" in key]
@@ -79,7 +79,7 @@ class FrustumGenerator(object):
 
     def generate_frustums(self):
         clip_distance = 2.0
-        max_clip_distance=60
+        max_clip_distance = 60
 
         for cam_key in self.camera_keys:
             camera_token = self.sample_record['data'][cam_key]
@@ -90,7 +90,7 @@ class FrustumGenerator(object):
             # CAM_FRONT_RIGHT can also use LIDAR_FRONT_RIGHT
 
             image_path, box_list, cam_intrinsic = self.lyftd.get_sample_data(camera_token,
-                                                                             box_vis_level=BoxVisibility.ALL,
+                                                                             box_vis_level=BoxVisibility.ANY,
                                                                              selected_anntokens=None)
             img = Image.open(image_path)
 
@@ -103,7 +103,8 @@ class FrustumGenerator(object):
 
                 mask = mask_points(point_cloud_in_camera_coord_2d, 0, img.size[0], ymin=0, ymax=img.size[1])
 
-                distance_mask = (point_cloud.points[2, :] > clip_distance) & (point_cloud.points[2,:] < max_clip_distance)
+                distance_mask = (point_cloud.points[2, :] > clip_distance) & (
+                            point_cloud.points[2, :] < max_clip_distance)
 
                 mask = np.logical_and(mask, distance_mask)
 
@@ -126,7 +127,8 @@ class FrustumGenerator(object):
                 box_2d_pts = np.array([xmin, ymin, xmax, ymax])
                 box_3d_pts = np.transpose(box_in_sensor_coord.corners())
 
-                fp = FrusutmPoints(lyftd=self.lyftd,box_in_sensor_coord=box_in_sensor_coord, point_cloud_in_box=point_clouds_in_box,
+                fp = FrusutmPoints(lyftd=self.lyftd, box_in_sensor_coord=box_in_sensor_coord,
+                                   point_cloud_in_box=point_clouds_in_box,
                                    box_3d_pts=box_3d_pts, box_2d_pts=box_2d_pts, heading_angle=heading_angle,
                                    frustum_angle=frustum_angle, camera_token=camera_token,
                                    sample_token=self.sample_record['token'])
@@ -135,7 +137,7 @@ class FrustumGenerator(object):
 
 
 class FrusutmPoints(object):
-    def __init__(self, lyftd:LyftDataset,box_in_sensor_coord: Box, point_cloud_in_box, box_3d_pts,
+    def __init__(self, lyftd: LyftDataset, box_in_sensor_coord: Box, point_cloud_in_box, box_3d_pts,
                  box_2d_pts, heading_angle, frustum_angle, sample_token, camera_token):
         self.box_in_sensor_coord = box_in_sensor_coord
         self.point_cloud_in_box = point_cloud_in_box
@@ -145,7 +147,17 @@ class FrusutmPoints(object):
         self.frustum_angle = frustum_angle
         self.sample_token = sample_token
         self.camera_token = camera_token
-        self.lyftd=lyftd
+        self.lyftd = lyftd
+        self.camera_intrinsic=self._get_camera_intrinsic()
+
+    def _get_camera_intrinsic(self)->np.ndarray:
+        sd_record = self.lyftd.get("sample_data", self.camera_token)
+        cs_record = self.lyftd.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
+
+        camera_intrinsic = np.array(cs_record['camera_intrinsic'])
+
+        return camera_intrinsic
+
 
     def _get_wlh(self):
         w, l, h = self.box_in_sensor_coord.wlh
@@ -170,32 +182,26 @@ class FrusutmPoints(object):
 
     def render_point_cloud_on_image(self, ax):
 
-        sd_record = self.lyftd.get("sample_data", self.camera_token)
-        cs_record = self.lyftd.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
+        projected_pts = view_points(np.transpose(self.point_cloud_in_box),
+                                    view=self.camera_intrinsic, normalize=True)
+        ax.scatter(projected_pts[0, :], projected_pts[1, :],s=0.1,alpha=0.1)
+        # self.lyftd.render_pointcloud_in_image()
 
-        camera_intrinsic=np.array(cs_record['camera_intrinsic'])
-        self.box_in_sensor_coord.render(ax,view=camera_intrinsic,normalize=True)
-        projected_pts=view_points(np.transpose(self.point_cloud_in_box),view=camera_intrinsic,normalize=True)
-        ax.scatter(projected_pts[0,:],projected_pts[1,:])
-        #self.lyftd.render_pointcloud_in_image()
+    def render_boxes_on_image(self, ax):
 
-    def render_point_cloud_top_view(self,ax,view_matrix=np.array([[1, 0, 0], [0, 0, 1], [0, 0, 0]])):
+        self.box_in_sensor_coord.render(ax, view=self.camera_intrinsic, normalize=True)
 
-        self.box_in_sensor_coord.render(ax,view=view_matrix,normalize=False)
-        projected_pts=view_points(np.transpose(self.point_cloud_in_box),view=view_matrix,normalize=False)
-        ax.scatter(projected_pts[0,:],projected_pts[1,:],s=0.1)
+    def render_point_cloud_top_view(self, ax, view_matrix=np.array([[1, 0, 0], [0, 0, 1], [0, 0, 0]])):
 
+        #self.box_in_sensor_coord.render(ax, view=view_matrix, normalize=False)
+        projected_pts = view_points(np.transpose(self.point_cloud_in_box), view=view_matrix, normalize=False)
+        ax.scatter(projected_pts[0, :], projected_pts[1, :], s=0.1)
 
-
-    def render_image(self,ax):
-
-        image_path=self.lyftd.get_sample_data_path(self.camera_token)
+    def render_image(self, ax):
+        image_path = self.lyftd.get_sample_data_path(self.camera_token)
         import skimage
-        image_array=skimage.io.imread(image_path)
+        image_array = skimage.io.imread(image_path)
         ax.imshow(image_array)
-
-
-
 
 
 def int64_feature(value):
