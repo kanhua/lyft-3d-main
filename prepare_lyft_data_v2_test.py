@@ -24,7 +24,7 @@ def test_plot_one_frustum():
     ax_dict = {}
     for fp in fg.generate_frustums():
         if fp.camera_token not in ax_dict.keys():
-            fig, ax = plt.subplots(1, 2)
+            fig, ax = plt.subplots(1, 3)
             ax_dict[fp.camera_token] = (fig, ax)
             fp.render_image(ax[0])
         else:
@@ -33,6 +33,8 @@ def test_plot_one_frustum():
         fp.render_point_cloud_on_image(ax[0])
 
         fp.render_point_cloud_top_view(ax[1])
+
+        fp.render_rotated_point_cloud_top_view(ax[2])
 
     for key in ax_dict.keys():
         fig, ax = ax_dict[key]

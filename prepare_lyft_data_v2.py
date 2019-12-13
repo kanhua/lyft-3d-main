@@ -15,6 +15,8 @@ from lyft_dataset_sdk.utils.geometry_utils import view_points, transform_matrix,
 import matplotlib.pyplot as plt
 import warnings
 
+from provider import rotate_pc_along_y
+
 
 def transform_pc_to_camera_coord(cam: dict, pointsensor: dict, point_cloud_3d: LidarPointCloud, lyftd: LyftDataset):
     warnings.warn("The point cloud is transformed to camera coordinates in place", UserWarning)
@@ -104,7 +106,7 @@ class FrustumGenerator(object):
                 mask = mask_points(point_cloud_in_camera_coord_2d, 0, img.size[0], ymin=0, ymax=img.size[1])
 
                 distance_mask = (point_cloud.points[2, :] > clip_distance) & (
-                            point_cloud.points[2, :] < max_clip_distance)
+                        point_cloud.points[2, :] < max_clip_distance)
 
                 mask = np.logical_and(mask, distance_mask)
 
@@ -148,16 +150,15 @@ class FrusutmPoints(object):
         self.sample_token = sample_token
         self.camera_token = camera_token
         self.lyftd = lyftd
-        self.camera_intrinsic=self._get_camera_intrinsic()
+        self.camera_intrinsic = self._get_camera_intrinsic()
 
-    def _get_camera_intrinsic(self)->np.ndarray:
+    def _get_camera_intrinsic(self) -> np.ndarray:
         sd_record = self.lyftd.get("sample_data", self.camera_token)
         cs_record = self.lyftd.get("calibrated_sensor", sd_record["calibrated_sensor_token"])
 
         camera_intrinsic = np.array(cs_record['camera_intrinsic'])
 
         return camera_intrinsic
-
 
     def _get_wlh(self):
         w, l, h = self.box_in_sensor_coord.wlh
@@ -181,27 +182,43 @@ class FrusutmPoints(object):
         return example
 
     def render_point_cloud_on_image(self, ax):
-
         projected_pts = view_points(np.transpose(self.point_cloud_in_box),
                                     view=self.camera_intrinsic, normalize=True)
-        ax.scatter(projected_pts[0, :], projected_pts[1, :],s=0.1,alpha=0.1)
+        ax.scatter(projected_pts[0, :], projected_pts[1, :], s=0.1, alpha=0.1)
         # self.lyftd.render_pointcloud_in_image()
 
     def render_boxes_on_image(self, ax):
-
         self.box_in_sensor_coord.render(ax, view=self.camera_intrinsic, normalize=True)
 
     def render_point_cloud_top_view(self, ax, view_matrix=np.array([[1, 0, 0], [0, 0, 1], [0, 0, 0]])):
-
-        #self.box_in_sensor_coord.render(ax, view=view_matrix, normalize=False)
+        # self.box_in_sensor_coord.render(ax, view=view_matrix, normalize=False)
         projected_pts = view_points(np.transpose(self.point_cloud_in_box), view=view_matrix, normalize=False)
         ax.scatter(projected_pts[0, :], projected_pts[1, :], s=0.1)
+        if projected_pts.shape[1] > 0:
+            ax.text(np.mean(projected_pts[0, :]), np.mean(projected_pts[1, :]),
+                    "{:.2f}".format(self.frustum_angle * 180 / np.pi))
 
     def render_image(self, ax):
         image_path = self.lyftd.get_sample_data_path(self.camera_token)
         import skimage
         image_array = skimage.io.imread(image_path)
         ax.imshow(image_array)
+
+    def get_center_view_pc(self):
+        pc = np.copy(self.point_cloud_in_box)
+
+        pc = rotate_pc_along_y(pc, self.frustum_angle + np.pi / 2)
+
+        return pc
+
+    def render_rotated_point_cloud_top_view(self, ax,
+                                            view_matrix=np.array([[1, 0, 0],
+                                                                  [0, 0, 1], [0, 0, 0]])):
+        pc=self.get_center_view_pc()
+        projected_pts = view_points(np.transpose(pc), view=view_matrix, normalize=False)
+        ax.scatter(projected_pts[0, :], projected_pts[1, :], s=0.1)
+
+
 
 
 def int64_feature(value):
