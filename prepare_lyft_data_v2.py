@@ -120,7 +120,7 @@ class FrustumGenerator(object):
 
                 point_clouds_in_box = point_cloud.points[:, mask]
 
-                _, label = extract_pc_in_box3d(point_clouds_in_box[0:3, :], box_in_sensor_coord.corners())
+                _, seg_label = extract_pc_in_box3d(point_clouds_in_box[0:3, :], box_in_sensor_coord.corners())
 
                 heading_angle = get_box_yaw_angle_in_camera_coords(box_in_sensor_coord)
                 frustum_angle = get_frustum_angle(self.lyftd, camera_token, xmax, xmin, ymax, ymin)
@@ -133,14 +133,14 @@ class FrustumGenerator(object):
                                    point_cloud_in_box=point_clouds_in_box,
                                    box_3d_pts=box_3d_pts, box_2d_pts=box_2d_pts, heading_angle=heading_angle,
                                    frustum_angle=frustum_angle, camera_token=camera_token,
-                                   sample_token=self.sample_record['token'])
+                                   sample_token=self.sample_record['token'], seg_label=seg_label)
 
                 yield fp
 
 
 class FrusutmPoints(object):
     def __init__(self, lyftd: LyftDataset, box_in_sensor_coord: Box, point_cloud_in_box, box_3d_pts,
-                 box_2d_pts, heading_angle, frustum_angle, sample_token, camera_token):
+                 box_2d_pts, heading_angle, frustum_angle, sample_token, camera_token, seg_label: np.ndarray):
         self.box_in_sensor_coord = box_in_sensor_coord
         self.point_cloud_in_box = point_cloud_in_box
         self.box_3d_pts = box_3d_pts
@@ -151,6 +151,8 @@ class FrusutmPoints(object):
         self.camera_token = camera_token
         self.lyftd = lyftd
         self.camera_intrinsic = self._get_camera_intrinsic()
+        self.seg_label = seg_label
+        self.object_of_interest_name = ['car', 'pedestrian', 'cyclist']
 
     def _get_camera_intrinsic(self) -> np.ndarray:
         sd_record = self.lyftd.get("sample_data", self.camera_token)
@@ -171,11 +173,19 @@ class FrusutmPoints(object):
 
         return self.point_cloud_in_box.ravel()
 
-    def to_train_example(self):
+    def to_train_example(self) -> tf.train.Example:
         feature_dict = {
-            'box3d_size': float_list_feature(self._get_wlh()),
-            'frustum_point_cloud': float_list_feature(self._flat_pointclout()),
-            'box_3d': float_list_feature(self)
+            'box3d_size': float_list_feature(self._get_wlh()),  # (3,)
+            'frustum_point_cloud': float_list_feature(self._flat_pointclout()),  # (N,3)
+            'box_3d': float_list_feature(self.box_3d_pts.ravel()),  # (8,3)
+            'box_2d': float_list_feature(self.box_2d_pts.ravel()),  # (4,)
+            'heading_angle': float_feature(self.heading_angle),
+            'frustum_angle': float_feature(self.frustum_angle),
+            'sample_token': bytes_feature(self.sample_token.encode('utf8')),
+            'type_name': bytes_feature(self.box_in_sensor_coord.name.encode('utf8')),
+            'camera_token:': bytes_feature(self.camera_token.encode('utf8')),
+            'annotation_token': bytes_feature(self.box_in_sensor_coord.token.encode('utf8')),
+            'box_center': float_list_feature(self.box_in_sensor_coord.center.ravel()),  # (3,)
         }
         example = tf.train.Example(features=tf.train.Features(feature=feature_dict))
 
@@ -214,11 +224,23 @@ class FrusutmPoints(object):
     def render_rotated_point_cloud_top_view(self, ax,
                                             view_matrix=np.array([[1, 0, 0],
                                                                   [0, 0, 1], [0, 0, 0]])):
-        pc=self.get_center_view_pc()
+        pc = self.get_center_view_pc()
         projected_pts = view_points(np.transpose(pc), view=view_matrix, normalize=False)
         ax.scatter(projected_pts[0, :], projected_pts[1, :], s=0.1)
 
 
+def parse_frustum_point_record(tfexample_message: str):
+    keys_to_features = {
+        "box3d_size": tf.FixedLenFeature((3,), tf.float32),
+        "frustum_point_cloud": tf.FixedLenSequenceFeature((3,), tf.float32, allow_missing=True),
+        "box_3d": tf.FixedLenFeature((8, 3), tf.float32),
+        "box_2d": tf.FixedLenFeature((4,), tf.float32),
+        "type_name":tf.FixedLenFeature((),tf.string),
+    }
+
+    parsed_example = tf.io.parse_single_example(tfexample_message, keys_to_features)
+
+    return parsed_example
 
 
 def int64_feature(value):
@@ -239,6 +261,10 @@ def bytes_list_feature(value):
 
 def float_list_feature(value):
     return tf.train.Feature(float_list=tf.train.FloatList(value=value))
+
+
+def float_feature(value):
+    return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
 
 
 def in_hull(p, hull):
@@ -382,9 +408,8 @@ def get_all_boxes_in_single_scene(scene_number, from_rgb_detection, ldf: LyftDat
         sample_record = ldf.get('sample', sample_token)
         if not from_rgb_detection:
             fg = FrustumGenerator(sample_token, ldf)
-            fg.generate_frustums()
-
-
+            for fp in fg.generate_frustums():
+                yield fp
         else:
             # reserved for rgb detection data
             pass
