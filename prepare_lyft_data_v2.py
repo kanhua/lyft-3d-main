@@ -193,6 +193,8 @@ class FrustumGenerator(object):
                 # TODO filter out data
                 if box_in_sensor_coord.name not in self.object_of_interest_name:
                     continue
+                if point_clouds_in_box.shape[0] < 100:
+                    continue
 
                 fp = FrusutmPoints(lyftd=self.lyftd, box_in_sensor_coord=box_in_sensor_coord,
                                    point_cloud_in_box=point_clouds_in_box,
@@ -207,7 +209,14 @@ class FrusutmPoints(object):
     def __init__(self, lyftd: LyftDataset, box_in_sensor_coord: Box, point_cloud_in_box, box_3d_pts,
                  box_2d_pts, heading_angle, frustum_angle, sample_token, camera_token, seg_label: np.ndarray):
         self.box_in_sensor_coord = box_in_sensor_coord
-        self.point_cloud_in_box = point_cloud_in_box
+
+        # TODO move NUM_POINT to some setting session
+        self.NUM_POINT = 1024
+        sel_index = np.random.choice(point_cloud_in_box.shape[0], self.NUM_POINT)
+        self.point_cloud_in_box = point_cloud_in_box[sel_index, :]
+
+        self.seg_label = seg_label[sel_index]
+
         self.box_3d_pts = box_3d_pts
         self.box_2d_pts = box_2d_pts
         self.heading_angle = heading_angle
@@ -216,7 +225,6 @@ class FrusutmPoints(object):
         self.camera_token = camera_token
         self.lyftd = lyftd
         self.camera_intrinsic = self._get_camera_intrinsic()
-        self.seg_label = seg_label
         self.object_of_interest_name = ['car', 'pedestrian', 'cyclist']
 
     def _get_center_view_rotate_angle(self):
@@ -291,8 +299,7 @@ class FrusutmPoints(object):
             'frustum_point_cloud': float_list_feature(self._flat_pointclout()),  # (N,3)
             'rot_frustum_point_cloud': float_list_feature(self._get_rotated_point_cloud().ravel()),  # (N,3)
 
-            'seg_label':int64_list_feature(self.seg_label.ravel()),
-
+            'seg_label': int64_list_feature(self.seg_label.ravel()),
 
             'box_3d': float_list_feature(self.box_3d_pts.ravel()),  # (8,3)
             'rot_box_3d': float_list_feature(self._get_rotated_box_3d().ravel()),  # (8,3)
@@ -354,14 +361,15 @@ class FrusutmPoints(object):
 def parse_frustum_point_record(tfexample_message: str):
     # TODO move this declaration to proper place
     NUM_CLASS = 3
+    NUM_POINT= 1024
     keys_to_features = {
         "box3d_size": tf.FixedLenFeature((3,), tf.float32),
         "size_class": tf.FixedLenFeature((), tf.int64),
         "size_residual": tf.FixedLenFeature((3,), tf.float32),
-        "seg_label":tf.FixedLenSequenceFeature([],tf.int64,allow_missing=True),
+        "seg_label": tf.FixedLenFeature((NUM_POINT,), tf.int64),
 
-        "frustum_point_cloud": tf.FixedLenSequenceFeature((1,), tf.float32, allow_missing=True),
-        "rot_frustum_point_cloud": tf.FixedLenSequenceFeature((3,), tf.float32, allow_missing=True),
+        "frustum_point_cloud": tf.FixedLenFeature((3,1024), tf.float32),
+        "rot_frustum_point_cloud": tf.FixedLenFeature((3,1024), tf.float32),
 
         "box_3d": tf.FixedLenFeature((8, 3), tf.float32),
         "rot_box_3d": tf.FixedLenFeature((8, 3), tf.float32),
