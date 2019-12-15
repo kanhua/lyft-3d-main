@@ -17,7 +17,7 @@ import warnings
 
 from provider import rotate_pc_along_y
 
-from model_util import g_type2class, g_type_mean_size, g_class2type, NUM_HEADING_BIN
+from model_util import g_type2class, g_type_mean_size, g_class2type, NUM_HEADING_BIN, g_type2onehotclass
 
 
 def transform_pc_to_camera_coord(cam: dict, pointsensor: dict, point_cloud_3d: LidarPointCloud, lyftd: LyftDataset):
@@ -190,10 +190,9 @@ class FrustumGenerator(object):
                 box_2d_pts = np.array([xmin, ymin, xmax, ymax])
                 box_3d_pts = np.transpose(box_in_sensor_coord.corners())
 
-                #TODO filter out data
+                # TODO filter out data
                 if box_in_sensor_coord.name not in self.object_of_interest_name:
                     continue
-
 
                 fp = FrusutmPoints(lyftd=self.lyftd, box_in_sensor_coord=box_in_sensor_coord,
                                    point_cloud_in_box=point_clouds_in_box,
@@ -240,25 +239,24 @@ class FrusutmPoints(object):
         return rotate_pc_along_y(r_box_3d_pts,
                                  rot_angle=self._get_center_view_rotate_angle())
 
-    def _get_angle_class_residual(self,rotated_heading_angle):
+    def _get_angle_class_residual(self, rotated_heading_angle):
         angle_class, angle_residual = angle2class(rotated_heading_angle, NUM_HEADING_BIN)
 
-        return angle_class,angle_residual
+        return angle_class, angle_residual
 
     def _get_size_class_residual(self):
-
-        #TODO size2class() and settings were copied from size, we therefor use
+        # TODO size2class() and settings were copied from size, we therefor use
         # self._get_wlh() instead of self.box_sensor_coord.size
-        size_class,size_residual =size2class(self._get_wlh(),self.box_in_sensor_coord.name)
-        return size_class,size_residual
-
+        size_class, size_residual = size2class(self._get_wlh(), self.box_in_sensor_coord.name)
+        return size_class, size_residual
 
     def _get_one_hot_vec(self):
-        pass
+        one_hot_vec = np.zeros(len(self.object_of_interest_name), dtype=np.int)
+        one_hot_vec[g_type2onehotclass[self.box_in_sensor_coord.name]] = 1
+        return one_hot_vec
 
     def _get_rotated_heading_angle(self):
-
-        return self.heading_angle-self.frustum_angle
+        return self.heading_angle - self.frustum_angle
 
     def _get_camera_intrinsic(self) -> np.ndarray:
         sd_record = self.lyftd.get("sample_data", self.camera_token)
@@ -280,11 +278,10 @@ class FrusutmPoints(object):
         return self.point_cloud_in_box.ravel()
 
     def to_train_example(self) -> tf.train.Example:
-
         rotated_heading_angle = self._get_rotated_heading_angle()
-        rotated_angle_class,rotated_angle_residual=self._get_angle_class_residual(rotated_heading_angle)
+        rotated_angle_class, rotated_angle_residual = self._get_angle_class_residual(rotated_heading_angle)
 
-        size_class,size_residual=self._get_size_class_residual()
+        size_class, size_residual = self._get_size_class_residual()
 
         feature_dict = {
             'box3d_size': float_list_feature(self._get_wlh()),  # (3,)
@@ -293,6 +290,9 @@ class FrusutmPoints(object):
 
             'frustum_point_cloud': float_list_feature(self._flat_pointclout()),  # (N,3)
             'rot_frustum_point_cloud': float_list_feature(self._get_rotated_point_cloud().ravel()),  # (N,3)
+
+            'seg_label':int64_list_feature(self.seg_label.ravel()),
+
 
             'box_3d': float_list_feature(self.box_3d_pts.ravel()),  # (8,3)
             'rot_box_3d': float_list_feature(self._get_rotated_box_3d().ravel()),  # (8,3)
@@ -307,6 +307,8 @@ class FrusutmPoints(object):
             'frustum_angle': float_feature(self.frustum_angle),
             'sample_token': bytes_feature(self.sample_token.encode('utf8')),
             'type_name': bytes_feature(self.box_in_sensor_coord.name.encode('utf8')),
+            'one_hot_vec': int64_list_feature(self._get_one_hot_vec()),
+
             'camera_token:': bytes_feature(self.camera_token.encode('utf8')),
             'annotation_token': bytes_feature(self.box_in_sensor_coord.token.encode('utf8')),
 
@@ -350,12 +352,29 @@ class FrusutmPoints(object):
 
 
 def parse_frustum_point_record(tfexample_message: str):
+    # TODO move this declaration to proper place
+    NUM_CLASS = 3
     keys_to_features = {
         "box3d_size": tf.FixedLenFeature((3,), tf.float32),
-        "frustum_point_cloud": tf.FixedLenSequenceFeature((3,), tf.float32, allow_missing=True),
+        "size_class": tf.FixedLenFeature((), tf.int64),
+        "size_residual": tf.FixedLenFeature((3,), tf.float32),
+        "seg_label":tf.FixedLenSequenceFeature([],tf.int64,allow_missing=True),
+
+        "frustum_point_cloud": tf.FixedLenSequenceFeature((1,), tf.float32, allow_missing=True),
+        "rot_frustum_point_cloud": tf.FixedLenSequenceFeature((3,), tf.float32, allow_missing=True),
+
         "box_3d": tf.FixedLenFeature((8, 3), tf.float32),
+        "rot_box_3d": tf.FixedLenFeature((8, 3), tf.float32),
         "box_2d": tf.FixedLenFeature((4,), tf.float32),
         "type_name": tf.FixedLenFeature((), tf.string),
+
+        "rot_heading_angle": tf.FixedLenFeature((), tf.float32),
+        "rot_angle_class": tf.FixedLenFeature((), tf.int64),
+        "rot_angle_residual": tf.FixedLenFeature((), tf.float32),
+
+        "one_hot_vec": tf.FixedLenFeature((NUM_CLASS,), tf.int64),
+        "rot_box_center": tf.FixedLenFeature((3,), tf.float32)
+
     }
 
     parsed_example = tf.io.parse_single_example(tfexample_message, keys_to_features)

@@ -76,6 +76,7 @@ def test_load_example():
         example=parse_frustum_point_record(raw_record)
         print("box_2d:",example['box_2d'].numpy())
         print("type_name:",example["type_name"].numpy().decode('utf8'))
+        print("seg_label",example["seg_label"].numpy())
 
 
 #test_one_sample_token()
