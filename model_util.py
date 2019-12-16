@@ -76,7 +76,8 @@ def tf_gather_object_pc(point_cloud, mask, npoints=512):
 def get_box3d_corners_helper(centers, headings, sizes):
     """ TF layer. Input: (N,3), (N,), (N,3), Output: (N,8,3) """
     #print '-----', centers
-    N = centers.get_shape()[0].value
+    #N = centers.get_shape()[0].value
+    N = tf.shape(centers)[0]
     l = tf.slice(sizes, [0,0], [-1,1]) # (N,1)
     w = tf.slice(sizes, [0,1], [-1,1]) # (N,1)
     h = tf.slice(sizes, [0,2], [-1,1]) # (N,1)
@@ -109,7 +110,8 @@ def get_box3d_corners(center, heading_residuals, size_residuals):
     Outputs:
         box3d_corners: (B,NH,NS,8,3) tensor
     """
-    batch_size = center.get_shape()[0].value
+    #batch_size = center.get_shape()[0].value
+    batch_size=tf.shape(center)[0]
     heading_bin_centers = tf.constant(np.arange(0,2*np.pi,2*np.pi/NUM_HEADING_BIN), dtype=tf.float32) # (NH,)
     headings = heading_residuals + tf.expand_dims(heading_bin_centers, 0) # (B,NH)
     
@@ -141,7 +143,8 @@ def parse_output_to_tensors(output, end_points):
     Output:
         end_points: dict (updated)
     '''
-    batch_size = output.get_shape()[0].value
+    #batch_size = output.get_shape()[0].value
+    batch_size=tf.shape(output)[0]
     center = tf.slice(output, [0,0], [-1,3])
     end_points['center_boxnet'] = center
 

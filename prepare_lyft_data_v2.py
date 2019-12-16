@@ -368,8 +368,8 @@ def parse_frustum_point_record(tfexample_message: str):
         "size_residual": tf.FixedLenFeature((3,), tf.float32),
         "seg_label": tf.FixedLenFeature((NUM_POINT,), tf.int64),
 
-        "frustum_point_cloud": tf.FixedLenFeature((3,1024), tf.float32),
-        "rot_frustum_point_cloud": tf.FixedLenFeature((3,1024), tf.float32),
+        "frustum_point_cloud": tf.FixedLenFeature((NUM_POINT,3), tf.float32),
+        "rot_frustum_point_cloud": tf.FixedLenFeature((NUM_POINT,3), tf.float32),
 
         "box_3d": tf.FixedLenFeature((8, 3), tf.float32),
         "rot_box_3d": tf.FixedLenFeature((8, 3), tf.float32),

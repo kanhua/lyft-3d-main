@@ -131,6 +131,8 @@ def train():
             size_class_label_pl, size_residual_label_pl = \
                 iterator.get_next()
 
+            tf.ensure_shape(pointclouds_pl,(BATCH_SIZE,1024,3))
+
             is_training_pl = tf.placeholder(tf.bool, shape=())
 
             # Note the global_step=batch_size parameter to minimize.
@@ -154,18 +156,18 @@ def train():
             tf.summary.scalar('total_loss', total_loss)
 
             # Write summaries of bounding box IoU and segmentation accuracies
-            # iou2ds, iou3ds = tf.py_func(provider.compute_box3d_iou, [ \
-            #     end_points['center'], \
-            #     end_points['heading_scores'], end_points['heading_residuals'], \
-            #     end_points['size_scores'], end_points['size_residuals'], \
-            #     centers_pl, \
-            #     heading_class_label_pl, heading_residual_label_pl, \
-            #     size_class_label_pl, size_residual_label_pl], \
-            #                             [tf.float32, tf.float32])
-            # end_points['iou2ds'] = iou2ds
-            # end_points['iou3ds'] = iou3ds
-            # tf.summary.scalar('iou_2d', tf.reduce_mean(iou2ds))
-            # tf.summary.scalar('iou_3d', tf.reduce_mean(iou3ds))
+            iou2ds, iou3ds = tf.py_func(provider.compute_box3d_iou, [ \
+                 end_points['center'], \
+                 end_points['heading_scores'], end_points['heading_residuals'], \
+                 end_points['size_scores'], end_points['size_residuals'], \
+                 centers_pl, \
+                 heading_class_label_pl, heading_residual_label_pl, \
+                 size_class_label_pl, size_residual_label_pl], \
+                                         [tf.float32, tf.float32])
+            end_points['iou2ds'] = iou2ds
+            end_points['iou3ds'] = iou3ds
+            tf.summary.scalar('iou_2d', tf.reduce_mean(iou2ds))
+            tf.summary.scalar('iou_3d', tf.reduce_mean(iou3ds))
 
             correct = tf.equal(tf.argmax(end_points['mask_logits'], 2),
                                tf.to_int64(labels_pl))
