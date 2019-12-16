@@ -16,6 +16,16 @@ def test_one_sample_token():
 
     fp = next(fg.generate_frustums())
 
+    example = fp.to_train_example()
+    example_proto_str = example.SerializeToString()
+
+    example_tensors=parse_frustum_point_record(example_proto_str)
+
+    assert np.allclose(example_tensors['frustum_point_cloud'].numpy(), fp.point_cloud_in_box)
+
+    assert np.allclose(example_tensors['rot_box_3d'].numpy(),fp._get_rotated_box_3d())  # (8,3))
+
+
 
 def test_write_tfrecord():
     test_sample_token = level5data.sample[0]['token']
@@ -60,7 +70,7 @@ def test_plot_one_frustum():
 
 def test_one_scene():
     print("writing one scene:")
-    with tf.io.TFRecordWriter("./artifact/test.tfrec") as tfrw:
+    with tf.io.TFRecordWriter("./artifact/scene1_test.tfrec") as tfrw:
         for fp in get_all_boxes_in_single_scene(0, False, level5data):
             tfexample = fp.to_train_example()
             tfrw.write(tfexample.SerializeToString())
@@ -79,17 +89,16 @@ def test_load_example():
 
 
 def test_tfdataset():
-
     def parse_data(raw_record):
         example = parse_frustum_point_record(raw_record)
         return example['size_residual']
-        #return #example['rot_frustum_point_cloud'], tf.cast(example['one_hot_vec'], tf.float32), \
-               #tf.cast(example['seg_label'], tf.int32), \
-               #example['rot_box_center'], \
-               #tf.cast(example['rot_angle_class'], tf.int32), \
-               #example['rot_angle_residual'], \
-               #tf.cast(example['size_class'], tf.int32), \
-               #example['size_residual']
+        # return #example['rot_frustum_point_cloud'], tf.cast(example['one_hot_vec'], tf.float32), \
+        # tf.cast(example['seg_label'], tf.int32), \
+        # example['rot_box_center'], \
+        # tf.cast(example['rot_angle_class'], tf.int32), \
+        # example['rot_angle_residual'], \
+        # tf.cast(example['size_class'], tf.int32), \
+        # example['size_residual']
 
     filenames = ['./artifact/test.tfrec']
     full_dataset = tf.data.TFRecordDataset(filenames)
@@ -99,11 +108,11 @@ def test_tfdataset():
         print(batched_data)
 
 
-# test_one_sample_token()
+test_one_sample_token()
 # test_plot_one_frustum()
 test_write_tfrecord()
-# test_one_scene()
+test_one_scene()
 
 # test_load_example()
 
-test_tfdataset()
+# test_tfdataset()

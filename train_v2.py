@@ -19,12 +19,12 @@ sys.path.append(BASE_DIR)
 sys.path.append(os.path.join(ROOT_DIR, 'models'))
 import provider
 from train_util import get_batch
+from prepare_lyft_data_v2 import parse_frustum_point_record
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--gpu', type=int, default=0, help='GPU to use [default: GPU 0]')
 parser.add_argument('--model', default='frustum_pointnets_v1', help='Model name [default: frustum_pointnets_v1]')
 parser.add_argument('--log_dir', default='log', help='Log dir [default: log]')
-parser.add_argument('--num_point', type=int, default=2048, help='Point Number [default: 2048]')
 parser.add_argument('--max_epoch', type=int, default=201, help='Epoch to run [default: 201]')
 parser.add_argument('--batch_size', type=int, default=32, help='Batch Size during training [default: 32]')
 parser.add_argument('--learning_rate', type=float, default=0.001, help='Initial learning rate [default: 0.001]')
@@ -32,15 +32,16 @@ parser.add_argument('--momentum', type=float, default=0.9, help='Initial learnin
 parser.add_argument('--optimizer', default='adam', help='adam or momentum [default: adam]')
 parser.add_argument('--decay_step', type=int, default=200000, help='Decay step for lr decay [default: 200000]')
 parser.add_argument('--decay_rate', type=float, default=0.7, help='Decay rate for lr decay [default: 0.7]')
-parser.add_argument('--no_intensity', action='store_true', help='Only use XYZ for training')
 parser.add_argument('--restore_model_path', default=None, help='Restore model path e.g. log/model.ckpt [default: None]')
 parser.add_argument('--data_dir', default=None, help="overwritten data path for provider.FrustumData")
 FLAGS = parser.parse_args()
 
+
+import model_util
 # Set training configurations
 EPOCH_CNT = 0
 BATCH_SIZE = FLAGS.batch_size
-NUM_POINT = FLAGS.num_point
+NUM_POINT = model_util.NUM_CHANNELS_OF_PC
 MAX_EPOCH = FLAGS.max_epoch
 BASE_LEARNING_RATE = FLAGS.learning_rate
 GPU_INDEX = FLAGS.gpu
@@ -48,7 +49,7 @@ MOMENTUM = FLAGS.momentum
 OPTIMIZER = FLAGS.optimizer
 DECAY_STEP = FLAGS.decay_step
 DECAY_RATE = FLAGS.decay_rate
-NUM_CHANNEL = 3 if FLAGS.no_intensity else 4  # point feature channel
+NUM_CHANNEL = model_util.NUM_CHANNELS_OF_PC
 NUM_CLASSES = 2  # segmentation has two classes
 
 MODEL = importlib.import_module(FLAGS.model)  # import network module
@@ -99,7 +100,6 @@ def get_bn_decay(batch):
     return bn_decay
 
 
-from prepare_lyft_data_v2 import parse_frustum_point_record
 
 
 def parse_data(raw_record):
@@ -119,7 +119,7 @@ def train():
     with tf.Graph().as_default():
         with tf.device('/gpu:' + str(GPU_INDEX)):
 
-            filenames = ['./artifact/test.tfrec']
+            filenames = [FLAGS.data_dir]
             full_dataset = tf.data.TFRecordDataset(filenames)
             parsed_dataset = full_dataset.map(parse_data)
             parsed_dataset = parsed_dataset.batch(BATCH_SIZE)

@@ -18,6 +18,8 @@ import warnings
 from provider import rotate_pc_along_y
 
 from model_util import g_type2class, g_type_mean_size, g_class2type, NUM_HEADING_BIN, g_type2onehotclass
+from model_util import NUM_POINTS_OF_PC, g_type_object_of_interest
+from model_util import NUM_CHANNELS_OF_PC
 
 
 def transform_pc_to_camera_coord(cam: dict, pointsensor: dict, point_cloud_3d: LidarPointCloud, lyftd: LyftDataset):
@@ -109,7 +111,7 @@ class FrustumGenerator(object):
     def __init__(self, sample_token: str, lyftd: LyftDataset,
                  camera_type=None):
 
-        self.object_of_interest_name = ['car', 'pedestrian', 'cyclist']
+        self.object_of_interest_name = g_type_object_of_interest
         if camera_type is None:
             camera_type = ['CAM_FRONT', 'CAM_BACK', 'CAM_FRONT_LEFT',
                            'CAM_FRONT_RIGHT', 'CAM_BACK_RIGHT', 'CAM_BACK_LEFT']
@@ -193,7 +195,7 @@ class FrustumGenerator(object):
                 # TODO filter out data
                 if box_in_sensor_coord.name not in self.object_of_interest_name:
                     continue
-                if point_clouds_in_box.shape[0] < 100:
+                if point_clouds_in_box.shape[0] < 300:
                     continue
 
                 fp = FrusutmPoints(lyftd=self.lyftd, box_in_sensor_coord=box_in_sensor_coord,
@@ -210,8 +212,7 @@ class FrusutmPoints(object):
                  box_2d_pts, heading_angle, frustum_angle, sample_token, camera_token, seg_label: np.ndarray):
         self.box_in_sensor_coord = box_in_sensor_coord
 
-        # TODO move NUM_POINT to some setting session
-        self.NUM_POINT = 1024
+        self.NUM_POINT = NUM_POINTS_OF_PC
         sel_index = np.random.choice(point_cloud_in_box.shape[0], self.NUM_POINT)
         self.point_cloud_in_box = point_cloud_in_box[sel_index, :]
 
@@ -253,7 +254,7 @@ class FrusutmPoints(object):
         return angle_class, angle_residual
 
     def _get_size_class_residual(self):
-        # TODO size2class() and settings were copied from size, we therefor use
+        # TODO size2class() and settings were copied from size, we therefore use
         # self._get_wlh() instead of self.box_sensor_coord.size
         size_class, size_residual = size2class(self._get_wlh(), self.box_in_sensor_coord.name)
         return size_class, size_residual
@@ -357,19 +358,18 @@ class FrusutmPoints(object):
         projected_pts = view_points(np.transpose(pc), view=view_matrix, normalize=False)
         ax.scatter(projected_pts[0, :], projected_pts[1, :], s=0.1)
 
-
 def parse_frustum_point_record(tfexample_message: str):
-    # TODO move this declaration to proper place
-    NUM_CLASS = 3
-    NUM_POINT= 1024
+    NUM_CLASS = len(g_type_object_of_interest)
+    NUM_POINT = NUM_POINTS_OF_PC
+
     keys_to_features = {
         "box3d_size": tf.FixedLenFeature((3,), tf.float32),
         "size_class": tf.FixedLenFeature((), tf.int64),
         "size_residual": tf.FixedLenFeature((3,), tf.float32),
         "seg_label": tf.FixedLenFeature((NUM_POINT,), tf.int64),
 
-        "frustum_point_cloud": tf.FixedLenFeature((NUM_POINT,3), tf.float32),
-        "rot_frustum_point_cloud": tf.FixedLenFeature((NUM_POINT,3), tf.float32),
+        "frustum_point_cloud": tf.FixedLenFeature((NUM_POINT, NUM_CHANNELS_OF_PC), tf.float32),
+        "rot_frustum_point_cloud": tf.FixedLenFeature((NUM_POINT, NUM_CHANNELS_OF_PC), tf.float32),
 
         "box_3d": tf.FixedLenFeature((8, 3), tf.float32),
         "rot_box_3d": tf.FixedLenFeature((8, 3), tf.float32),

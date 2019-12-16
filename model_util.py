@@ -10,6 +10,8 @@ import tf_util
 # Global Constants
 # -----------------
 
+NUM_CHANNELS_OF_PC=3 # number of channels that the point cloud uses
+NUM_POINTS_OF_PC=1024 # number of points of point cloud per frustum
 NUM_HEADING_BIN = 12
 NUM_SIZE_CLUSTER = 8 # one cluster for each type
 NUM_OBJECT_POINT = 512
@@ -18,8 +20,8 @@ g_type2class={'Car':0, 'Van':1, 'Truck':2, 'Pedestrian':3,
               'car':0,'pedestrian':3,'cyclist':5} # add this line for compatibility with Lyft data
 g_class2type = {g_type2class[t]:t for t in g_type2class}
 #g_type2onehotclass = {'Car': 0, 'Pedestrian': 1, 'Cyclist': 2}
-g_type2onehotclass={'Car': 0, 'Pedestrian': 1, 'Cyclist': 2,
-                    'car':0,'pedestrian':1,'cyclist':2} # add this line for compatibiltiy to Lyft data
+g_type2onehotclass={'car':0,'pedestrian':1,'cyclist':2} # add this line for compatibiltiy to Lyft data
+g_type_object_of_interest=['car', 'pedestrian', 'cyclist']
 g_type_mean_size = {'Car': np.array([3.88311640418,1.62856739989,1.52563191462]),
                     'Van': np.array([5.06763659,1.9007158,2.20532825]),
                     'Truck': np.array([10.13586957,2.58549199,3.2520595]),
