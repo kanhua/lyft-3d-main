@@ -135,7 +135,7 @@ class FrustumGenerator(object):
 
         if use_multisweep:
             pc, _ = LidarPointCloud.from_file_multisweep(self.lyftd, self.sample_record, chan='LIDAR_TOP',
-                                                         ref_chan='LIDAR_TOP', num_sweeps=5)
+                                                         ref_chan='LIDAR_TOP', num_sweeps=26)
         else:
             pc = LidarPointCloud.from_file(pcl_path)
 
@@ -193,6 +193,7 @@ class FrustumGenerator(object):
                 box_3d_pts = np.transpose(box_in_sensor_coord.corners())
 
                 # TODO filter out data
+                print("number of pc:", point_clouds_in_box.shape[0])
                 if box_in_sensor_coord.name not in self.object_of_interest_name:
                     continue
                 if point_clouds_in_box.shape[0] < 300:

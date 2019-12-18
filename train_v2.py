@@ -41,7 +41,7 @@ import model_util
 # Set training configurations
 EPOCH_CNT = 0
 BATCH_SIZE = FLAGS.batch_size
-NUM_POINT = model_util.NUM_CHANNELS_OF_PC
+NUM_POINT = model_util.NUM_POINTS_OF_PC
 MAX_EPOCH = FLAGS.max_epoch
 BASE_LEARNING_RATE = FLAGS.learning_rate
 GPU_INDEX = FLAGS.gpu
@@ -156,7 +156,7 @@ def train():
             tf.summary.scalar('total_loss', total_loss)
 
             # Write summaries of bounding box IoU and segmentation accuracies
-            iou2ds, iou3ds = tf.py_func(provider.compute_box3d_iou, [ \
+            iou2ds, iou3ds = tf.compat.v1.py_func(provider.compute_box3d_iou, [ \
                  end_points['center'], \
                  end_points['heading_scores'], end_points['heading_residuals'], \
                  end_points['size_scores'], end_points['size_residuals'], \
