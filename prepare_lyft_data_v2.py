@@ -215,7 +215,7 @@ class FrusutmPoints(object):
 
         self.NUM_POINT = NUM_POINTS_OF_PC
         sel_index = np.random.choice(point_cloud_in_box.shape[0], self.NUM_POINT)
-        self.point_cloud_in_box = point_cloud_in_box[sel_index, :]
+        self.point_cloud_in_box = point_cloud_in_box[sel_index, :]  #Nx3
 
         self.seg_label = seg_label[sel_index]
 

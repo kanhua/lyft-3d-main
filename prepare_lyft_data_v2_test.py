@@ -109,9 +109,9 @@ def test_tfdataset():
 
 
 test_one_sample_token()
-# test_plot_one_frustum()
-test_write_tfrecord()
-test_one_scene()
+test_plot_one_frustum()
+#test_write_tfrecord()
+#test_one_scene()
 
 # test_load_example()
 

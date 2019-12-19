@@ -252,12 +252,16 @@ def train_one_epoch(sess, ops, train_writer):
     iou3ds_sum = 0
     iou3d_correct_cnt = 0
 
-    summary, step, _, loss_val, logits_val, centers_pred_val, \
-    iou2ds, iou3ds, batch_label = \
-        sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'],
-                  ops['logits'], ops['centers_pred'],
-                  ops['end_points']['iou2ds'], ops['end_points']['iou3ds'], ops['labels_pl']],
-                 feed_dict={ops['is_training_pl']: is_training})
+    while True:
+        try:
+            summary, step, _, loss_val, logits_val, centers_pred_val, \
+            iou2ds, iou3ds, batch_label = \
+                sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'],
+                          ops['logits'], ops['centers_pred'],
+                          ops['end_points']['iou2ds'], ops['end_points']['iou3ds'], ops['labels_pl']],
+                         feed_dict={ops['is_training_pl']: is_training})
+        except tf.errors.OutOfRangeError:
+            pass
 
     train_writer.add_summary(summary, step)
 
