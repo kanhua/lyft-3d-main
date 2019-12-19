@@ -21,6 +21,8 @@ from model_util import g_type2class, g_type_mean_size, g_class2type, NUM_HEADING
 from model_util import NUM_POINTS_OF_PC, g_type_object_of_interest
 from model_util import NUM_CHANNELS_OF_PC
 
+from absl import logging
+
 
 def transform_pc_to_camera_coord(cam: dict, pointsensor: dict, point_cloud_3d: LidarPointCloud, lyftd: LyftDataset):
     warnings.warn("The point cloud is transformed to camera coordinates in place", UserWarning)
@@ -193,7 +195,7 @@ class FrustumGenerator(object):
                 box_3d_pts = np.transpose(box_in_sensor_coord.corners())
 
                 # TODO filter out data
-                print("number of pc:", point_clouds_in_box.shape[0])
+                logging.debug("number of pc: {}".format(point_clouds_in_box.shape[0]))
                 if box_in_sensor_coord.name not in self.object_of_interest_name:
                     continue
                 if point_clouds_in_box.shape[0] < 300:
@@ -215,7 +217,7 @@ class FrusutmPoints(object):
 
         self.NUM_POINT = NUM_POINTS_OF_PC
         sel_index = np.random.choice(point_cloud_in_box.shape[0], self.NUM_POINT)
-        self.point_cloud_in_box = point_cloud_in_box[sel_index, :]  #Nx3
+        self.point_cloud_in_box = point_cloud_in_box[sel_index, :]  # Nx3
 
         self.seg_label = seg_label[sel_index]
 
@@ -358,6 +360,7 @@ class FrusutmPoints(object):
         pc = self._get_rotated_point_cloud()
         projected_pts = view_points(np.transpose(pc), view=view_matrix, normalize=False)
         ax.scatter(projected_pts[0, :], projected_pts[1, :], s=0.1)
+
 
 def parse_frustum_point_record(tfexample_message: str):
     NUM_CLASS = len(g_type_object_of_interest)
