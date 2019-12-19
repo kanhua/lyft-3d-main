@@ -27,7 +27,7 @@ def main(argv):
     logging.set_verbosity(logging.INFO)
     scenes_to_process = map(int, FLAGS.scenes)
 
-    with Pool(processes=2) as p:
+    with Pool(processes=1) as p:
         p.map(process_one_scene, scenes_to_process)
 
 

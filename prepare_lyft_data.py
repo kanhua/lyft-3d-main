@@ -74,9 +74,9 @@ def parse_train_csv(data_file=default_train_file, with_score=False):
     return train_objects
 
 
-from lyft_dataset_sdk.eval.detection.mAP_evaluation import Box3D
 
 def parse_string_to_box(ps, with_score=True,to_3dbox=False,sample_token=None) -> List[Box]:
+    from lyft_dataset_sdk.eval.detection.mAP_evaluation import Box3D
     boxes = []
 
     col_num = 8

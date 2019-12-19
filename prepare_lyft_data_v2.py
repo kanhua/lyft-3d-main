@@ -554,7 +554,8 @@ def get_all_boxes_in_single_scene(scene_number, from_rgb_detection, ldf: LyftDat
     sample_token = start_sample_token
     counter = 0
     while sample_token != "":
-        print(counter)
+        if counter%10 ==0:
+            logging.info("Processing {} token {}".format(scene_number,counter))
         counter += 1
         sample_record = ldf.get('sample', sample_token)
         if not from_rgb_detection:
