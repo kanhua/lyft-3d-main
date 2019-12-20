@@ -226,27 +226,19 @@ def train():
                'step': batch,
                'end_points': end_points}
 
-        for epoch in range(MAX_EPOCH):
-            log_string('**** EPOCH %03d ****' % (epoch))
-            sys.stdout.flush()
+        log_string('**** START TRAINING ****')
+        sys.stdout.flush()
 
-            train_one_epoch(sess, ops, train_writer)
-            # eval_one_epoch(sess, ops, test_writer)
-
-            # Save the variables to disk.
-            if epoch % 10 == 0:
-                save_path = saver.save(sess, os.path.join(LOG_DIR, "model.ckpt"))
-                log_string("Model saved in file: %s" % save_path)
+        train_one_epoch(sess, ops, train_writer,model_saver=saver)
+        # eval_one_epoch(sess, ops, test_writer)
 
 
-def train_one_epoch(sess, ops, train_writer):
+def train_one_epoch(sess, ops, train_writer,model_saver):
     ''' Training for one epoch on the frustum dataset.
     ops is dict mapping from string to tf ops
     '''
     is_training = True
     log_string(str(datetime.now()))
-
-
 
     import itertools
 
@@ -282,16 +274,20 @@ def train_one_epoch(sess, ops, train_writer):
             iou3d_correct_cnt += np.sum(iou3ds >= 0.7)
 
             if count_num%20==0:
-
+                count_num+=1
                 # if (batch_idx + 1) % 10 == 0:
                 #   log_string(' -- %03d / %03d --' % (batch_idx + 1, num_batches))
-                log_string('mean loss: %f' % (loss_sum / count_num))
+                log_string('mean loss: %f' % (loss_sum / (count_num*BATCH_SIZE)))
                 log_string('segmentation accuracy: %f' % \
                            (total_correct / float(total_seen)))
                 log_string('box IoU (ground/3D): %f / %f' % \
                            (iou2ds_sum / float(BATCH_SIZE * count_num), iou3ds_sum / float(BATCH_SIZE * count_num)))
                 log_string('box estimation accuracy (IoU=0.7): %f' % \
                            (float(iou3d_correct_cnt) / float(BATCH_SIZE * count_num)))
+
+                # Save the variables to disk.
+                save_path = model_saver.save(sess, os.path.join(LOG_DIR, "model.ckpt"))
+                log_string("Model saved in file: %s" % save_path)
         except tf.errors.OutOfRangeError:
             total_correct = 0
             total_seen = 0
