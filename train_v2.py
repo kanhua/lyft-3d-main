@@ -12,6 +12,7 @@ import importlib
 import numpy as np
 import tensorflow as tf
 from datetime import datetime
+from absl import logging
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
@@ -36,6 +37,7 @@ parser.add_argument('--restore_model_path', default=None, help='Restore model pa
 parser.add_argument('--data_dir', default=None, help="overwritten data path for provider.FrustumData")
 FLAGS = parser.parse_args()
 
+logging.set_verbosity(logging.INFO)
 
 import model_util
 # Set training configurations
@@ -122,7 +124,7 @@ def train():
             filenames = [FLAGS.data_dir]
             full_dataset = tf.data.TFRecordDataset(filenames)
             parsed_dataset = full_dataset.map(parse_data)
-            parsed_dataset = parsed_dataset.batch(BATCH_SIZE)
+            parsed_dataset = parsed_dataset.repeat(MAX_EPOCH).batch(BATCH_SIZE)
 
             iterator = parsed_dataset.make_one_shot_iterator()
 
@@ -182,11 +184,11 @@ def train():
                 optimizer = tf.train.MomentumOptimizer(learning_rate,
                                                        momentum=MOMENTUM)
             elif OPTIMIZER == 'adam':
-                optimizer = tf.train.AdamOptimizer(learning_rate)
+                optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate)
             train_op = optimizer.minimize(loss, global_step=batch)
 
             # Add ops to save and restore all the variables.
-            saver = tf.train.Saver()
+            saver = tf.compat.v1.train.Saver()
 
         # Create a session
         config = tf.ConfigProto()
@@ -244,6 +246,10 @@ def train_one_epoch(sess, ops, train_writer):
     is_training = True
     log_string(str(datetime.now()))
 
+
+
+    import itertools
+
     # To collect statistics
     total_correct = 0
     total_seen = 0
@@ -252,44 +258,48 @@ def train_one_epoch(sess, ops, train_writer):
     iou3ds_sum = 0
     iou3d_correct_cnt = 0
 
-    while True:
+    for count_num in itertools.count():
         try:
+
             summary, step, _, loss_val, logits_val, centers_pred_val, \
             iou2ds, iou3ds, batch_label = \
                 sess.run([ops['merged'], ops['step'], ops['train_op'], ops['loss'],
                           ops['logits'], ops['centers_pred'],
                           ops['end_points']['iou2ds'], ops['end_points']['iou3ds'], ops['labels_pl']],
                          feed_dict={ops['is_training_pl']: is_training})
+
+            logging.debug("Number of batch: {}".format(count_num))
+
+            train_writer.add_summary(summary, step)
+
+            preds_val = np.argmax(logits_val, 2)
+            correct = np.sum(preds_val == batch_label)
+            total_correct += correct
+            total_seen += (BATCH_SIZE * NUM_POINT)
+            loss_sum += loss_val
+            iou2ds_sum += np.sum(iou2ds)
+            iou3ds_sum += np.sum(iou3ds)
+            iou3d_correct_cnt += np.sum(iou3ds >= 0.7)
+
+            if count_num%20==0:
+
+                # if (batch_idx + 1) % 10 == 0:
+                #   log_string(' -- %03d / %03d --' % (batch_idx + 1, num_batches))
+                log_string('mean loss: %f' % (loss_sum / count_num))
+                log_string('segmentation accuracy: %f' % \
+                           (total_correct / float(total_seen)))
+                log_string('box IoU (ground/3D): %f / %f' % \
+                           (iou2ds_sum / float(BATCH_SIZE * count_num), iou3ds_sum / float(BATCH_SIZE * count_num)))
+                log_string('box estimation accuracy (IoU=0.7): %f' % \
+                           (float(iou3d_correct_cnt) / float(BATCH_SIZE * count_num)))
         except tf.errors.OutOfRangeError:
-            pass
-
-    train_writer.add_summary(summary, step)
-
-    preds_val = np.argmax(logits_val, 2)
-    correct = np.sum(preds_val == batch_label)
-    total_correct += correct
-    total_seen += (BATCH_SIZE * NUM_POINT)
-    loss_sum += loss_val
-    iou2ds_sum += np.sum(iou2ds)
-    iou3ds_sum += np.sum(iou3ds)
-    iou3d_correct_cnt += np.sum(iou3ds >= 0.7)
-
-    # if (batch_idx + 1) % 10 == 0:
-    #   log_string(' -- %03d / %03d --' % (batch_idx + 1, num_batches))
-    log_string('mean loss: %f' % (loss_sum / 10))
-    log_string('segmentation accuracy: %f' % \
-               (total_correct / float(total_seen)))
-    log_string('box IoU (ground/3D): %f / %f' % \
-               (iou2ds_sum / float(BATCH_SIZE * 10), iou3ds_sum / float(BATCH_SIZE * 10)))
-    log_string('box estimation accuracy (IoU=0.7): %f' % \
-               (float(iou3d_correct_cnt) / float(BATCH_SIZE * 10)))
-    total_correct = 0
-    total_seen = 0
-    loss_sum = 0
-    iou2ds_sum = 0
-    iou3ds_sum = 0
-    iou3d_correct_cnt = 0
-
+            total_correct = 0
+            total_seen = 0
+            loss_sum = 0
+            iou2ds_sum = 0
+            iou3ds_sum = 0
+            iou3d_correct_cnt = 0
+            break
 
 def eval_one_epoch(sess, ops, test_writer):
     ''' Simple evaluation for one epoch on the frustum dataset.

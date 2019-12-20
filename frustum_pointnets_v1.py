@@ -34,7 +34,7 @@ def get_instance_seg_v1_net(point_cloud, one_hot_vec,
     batch_size = point_cloud.get_shape()[0].value
     num_point = point_cloud.get_shape()[1].value
 
-    net = tf.expand_dims(point_cloud, 2)
+    net = tf.compat.v1.expand_dims(point_cloud, 2)
 
     net = tf_util.conv2d(net, 64, [1,1],
                          padding='VALID', stride=[1,1],
