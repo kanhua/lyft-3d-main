@@ -1,4 +1,4 @@
-DATA_FILE="/dltraining/artifacts/scene_0_test.tfrec"
+DATA_FILE="/dltraining/artifacts/"
 MODEL_LOG_DIR="/dltraining/log_v1_test/"
 RESTORE_MODEL_PATH="/dltraining/log_v1_test//model.ckpt"
 

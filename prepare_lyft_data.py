@@ -29,20 +29,11 @@ except:
 # Adjust the dataroot parameter below to point to your local dataset path.
 # The correct dataset path contains at least the following four folders (or similar): images, lidar, maps, v1.0.1-train
 
+from prepare_lyft_data_v2 import load_train_data
+
+level5data=load_train_data()
+
 DATA_PATH, ARTIFACT_PATH, _ = get_paths()
-
-level5data_snapshot_file = "level5data.pickle"
-
-if os.path.exists(os.path.join(DATA_PATH, level5data_snapshot_file)):
-    with open(os.path.join(DATA_PATH, level5data_snapshot_file), 'rb') as fp:
-        level5data = pickle.load(fp)
-else:
-
-    level5data = LyftDataset(data_path=DATA_PATH,
-                             json_path=os.path.join(DATA_PATH, 'data/'),
-                             verbose=True)
-    with open(os.path.join(DATA_PATH, level5data_snapshot_file), 'wb') as fp:
-        pickle.dump(level5data, fp)
 
 default_train_file = DATA_PATH + "train.csv"
 

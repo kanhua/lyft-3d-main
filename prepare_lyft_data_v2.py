@@ -24,6 +24,25 @@ from model_util import NUM_CHANNELS_OF_PC
 from absl import logging
 
 
+def load_train_data():
+    from config_tool import get_paths
+    DATA_PATH, ARTIFACT_PATH, _ = get_paths()
+    level5data_snapshot_file = "level5data.pickle"
+
+    if os.path.exists(os.path.join(DATA_PATH, level5data_snapshot_file)):
+        with open(os.path.join(DATA_PATH, level5data_snapshot_file), 'rb') as fp:
+            level5data = pickle.load(fp)
+    else:
+
+        level5data = LyftDataset(data_path=DATA_PATH,
+                                 json_path=os.path.join(DATA_PATH, 'data/'),
+                                 verbose=True)
+        with open(os.path.join(DATA_PATH, level5data_snapshot_file), 'wb') as fp:
+            pickle.dump(level5data, fp)
+
+    return level5data
+
+
 def transform_pc_to_camera_coord(cam: dict, pointsensor: dict, point_cloud_3d: LidarPointCloud, lyftd: LyftDataset):
     warnings.warn("The point cloud is transformed to camera coordinates in place", UserWarning)
 
@@ -554,8 +573,8 @@ def get_all_boxes_in_single_scene(scene_number, from_rgb_detection, ldf: LyftDat
     sample_token = start_sample_token
     counter = 0
     while sample_token != "":
-        if counter%10 ==0:
-            logging.info("Processing {} token {}".format(scene_number,counter))
+        if counter % 10 == 0:
+            logging.info("Processing {} token {}".format(scene_number, counter))
         counter += 1
         sample_record = ldf.get('sample', sample_token)
         if not from_rgb_detection:

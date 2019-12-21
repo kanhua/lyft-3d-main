@@ -116,12 +116,15 @@ def parse_data(raw_record):
            example['size_residual']
 
 
+from run_prepare_lyft_data import list_all_files
+
+
 def train():
     ''' Main function for training and simple evaluation. '''
     with tf.Graph().as_default():
         with tf.device('/gpu:' + str(GPU_INDEX)):
-
-            filenames = [FLAGS.data_dir]
+            filenames = list_all_files(FLAGS.data_dir)
+            print(filenames)
             full_dataset = tf.data.TFRecordDataset(filenames)
             parsed_dataset = full_dataset.map(parse_data)
             parsed_dataset = parsed_dataset.repeat(MAX_EPOCH).batch(BATCH_SIZE)
