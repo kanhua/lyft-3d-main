@@ -1,11 +1,12 @@
 import tensorflow as tf
 
 tf.compat.v1.enable_eager_execution()
-from prepare_lyft_data_v2 import FrustumGenerator, get_all_boxes_in_single_scene, parse_frustum_point_record
-from prepare_lyft_data import level5data
+from prepare_lyft_data_v2 import FrustumGenerator, get_all_boxes_in_single_scene, \
+    parse_frustum_point_record,load_train_data
 import matplotlib.pyplot as plt
 import numpy as np
 
+level5data=load_train_data()
 
 def test_one_sample_token():
     test_sample_token = level5data.sample[0]['token']
@@ -34,7 +35,7 @@ def test_write_tfrecord():
 
     fg = FrustumGenerator(sample_token=test_sample_token, lyftd=level5data)
 
-    with tf.io.TFRecordWriter("./artifact/test.tfrec") as tfrw:
+    with tf.io.TFRecordWriter("./unit_test_data/test.tfrec") as tfrw:
         for fp in fg.generate_frustums():
             tfexample = fp.to_train_example()
             tfrw.write(tfexample.SerializeToString())
@@ -70,7 +71,7 @@ def test_plot_one_frustum():
 
 def test_one_scene():
     print("writing one scene:")
-    with tf.io.TFRecordWriter("./artifact/scene1_test.tfrec") as tfrw:
+    with tf.io.TFRecordWriter("./unit_test_data/scene1_test.tfrec") as tfrw:
         for fp in get_all_boxes_in_single_scene(0, False, level5data):
             tfexample = fp.to_train_example()
             tfrw.write(tfexample.SerializeToString())
@@ -79,7 +80,7 @@ def test_one_scene():
 def test_load_example():
     test_write_tfrecord()
 
-    filenames = ['./artifact/test.tfrec']
+    filenames = ['./unit_test_data/test.tfrec']
     raw_dataset = tf.data.TFRecordDataset(filenames)
     for raw_record in raw_dataset.take(5):
         example = parse_frustum_point_record(raw_record)
@@ -100,7 +101,7 @@ def test_tfdataset():
         # tf.cast(example['size_class'], tf.int32), \
         # example['size_residual']
 
-    filenames = ['./artifact/test.tfrec']
+    filenames = ['./unit_test_data/test.tfrec']
     full_dataset = tf.data.TFRecordDataset(filenames)
     parsed_dataset = full_dataset.map(parse_data)
 
@@ -109,7 +110,7 @@ def test_tfdataset():
 
 from prepare_lyft_data_v2 import parse_inference_data
 def test_parse_inference_data():
-    filenames = ['./artifact/test.tfrec']
+    filenames = ['./unit_test_data/test.tfrec']
     full_dataset = tf.data.TFRecordDataset(filenames)
     parsed_dataset = full_dataset.map(parse_inference_data)
 
