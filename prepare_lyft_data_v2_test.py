@@ -91,7 +91,7 @@ def test_load_example():
 def test_tfdataset():
     def parse_data(raw_record):
         example = parse_frustum_point_record(raw_record)
-        return example['size_residual']
+        return example['seg_label']
         # return #example['rot_frustum_point_cloud'], tf.cast(example['one_hot_vec'], tf.float32), \
         # tf.cast(example['seg_label'], tf.int32), \
         # example['rot_box_center'], \
@@ -107,12 +107,24 @@ def test_tfdataset():
     for batched_data in parsed_dataset.batch(3):
         print(batched_data)
 
+from prepare_lyft_data_v2 import parse_inference_data
+def test_parse_inference_data():
+    filenames = ['./artifact/test.tfrec']
+    full_dataset = tf.data.TFRecordDataset(filenames)
+    parsed_dataset = full_dataset.map(parse_inference_data)
 
-test_one_sample_token()
-test_plot_one_frustum()
+    for batched_data in parsed_dataset.batch(3):
+        print(batched_data[2])
+
+
+
+#test_one_sample_token()
+#test_plot_one_frustum()
 #test_write_tfrecord()
 #test_one_scene()
 
 # test_load_example()
 
-# test_tfdataset()
+#test_tfdataset()
+
+test_parse_inference_data()

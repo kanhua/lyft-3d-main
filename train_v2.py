@@ -20,7 +20,7 @@ sys.path.append(BASE_DIR)
 sys.path.append(os.path.join(ROOT_DIR, 'models'))
 import provider
 from train_util import get_batch
-from prepare_lyft_data_v2 import parse_frustum_point_record
+from prepare_lyft_data_v2 import parse_data
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--gpu', type=int, default=0, help='GPU to use [default: GPU 0]')
@@ -40,6 +40,7 @@ FLAGS = parser.parse_args()
 logging.set_verbosity(logging.INFO)
 
 import model_util
+
 # Set training configurations
 EPOCH_CNT = 0
 BATCH_SIZE = FLAGS.batch_size
@@ -102,20 +103,6 @@ def get_bn_decay(batch):
     return bn_decay
 
 
-
-
-def parse_data(raw_record):
-    example = parse_frustum_point_record(raw_record)
-    return example['rot_frustum_point_cloud'], \
-           tf.cast(example['one_hot_vec'], tf.float32), \
-           tf.cast(example['seg_label'], tf.int32), \
-           example['rot_box_center'], \
-           tf.cast(example['rot_angle_class'], tf.int32), \
-           example['rot_angle_residual'], \
-           tf.cast(example['size_class'], tf.int32), \
-           example['size_residual']
-
-
 from run_prepare_lyft_data import list_all_files
 
 
@@ -136,7 +123,7 @@ def train():
             size_class_label_pl, size_residual_label_pl = \
                 iterator.get_next()
 
-            tf.ensure_shape(pointclouds_pl,(BATCH_SIZE,1024,3))
+            tf.ensure_shape(pointclouds_pl, (BATCH_SIZE, NUM_POINT, NUM_CHANNEL))
 
             is_training_pl = tf.placeholder(tf.bool, shape=())
 
@@ -162,13 +149,13 @@ def train():
 
             # Write summaries of bounding box IoU and segmentation accuracies
             iou2ds, iou3ds = tf.compat.v1.py_func(provider.compute_box3d_iou, [ \
-                 end_points['center'], \
-                 end_points['heading_scores'], end_points['heading_residuals'], \
-                 end_points['size_scores'], end_points['size_residuals'], \
-                 centers_pl, \
-                 heading_class_label_pl, heading_residual_label_pl, \
-                 size_class_label_pl, size_residual_label_pl], \
-                                         [tf.float32, tf.float32])
+                end_points['center'], \
+                end_points['heading_scores'], end_points['heading_residuals'], \
+                end_points['size_scores'], end_points['size_residuals'], \
+                centers_pl, \
+                heading_class_label_pl, heading_residual_label_pl, \
+                size_class_label_pl, size_residual_label_pl], \
+                                                  [tf.float32, tf.float32])
             end_points['iou2ds'] = iou2ds
             end_points['iou3ds'] = iou3ds
             tf.summary.scalar('iou_2d', tf.reduce_mean(iou2ds))
@@ -232,11 +219,11 @@ def train():
         log_string('**** START TRAINING ****')
         sys.stdout.flush()
 
-        train_one_epoch(sess, ops, train_writer,model_saver=saver)
+        train_one_epoch(sess, ops, train_writer, model_saver=saver)
         # eval_one_epoch(sess, ops, test_writer)
 
 
-def train_one_epoch(sess, ops, train_writer,model_saver):
+def train_one_epoch(sess, ops, train_writer, model_saver):
     ''' Training for one epoch on the frustum dataset.
     ops is dict mapping from string to tf ops
     '''
@@ -276,11 +263,11 @@ def train_one_epoch(sess, ops, train_writer,model_saver):
             iou3ds_sum += np.sum(iou3ds)
             iou3d_correct_cnt += np.sum(iou3ds >= 0.7)
 
-            if count_num%20==0:
-                count_num+=1
+            if count_num % 20 == 0:
+                count_num += 1
                 # if (batch_idx + 1) % 10 == 0:
                 #   log_string(' -- %03d / %03d --' % (batch_idx + 1, num_batches))
-                log_string('mean loss: %f' % (loss_sum / (count_num*BATCH_SIZE)))
+                log_string('mean loss: %f' % (loss_sum / (count_num * BATCH_SIZE)))
                 log_string('segmentation accuracy: %f' % \
                            (total_correct / float(total_seen)))
                 log_string('box IoU (ground/3D): %f / %f' % \
@@ -299,6 +286,7 @@ def train_one_epoch(sess, ops, train_writer,model_saver):
             iou3ds_sum = 0
             iou3d_correct_cnt = 0
             break
+
 
 def eval_one_epoch(sess, ops, test_writer):
     ''' Simple evaluation for one epoch on the frustum dataset.

@@ -587,3 +587,37 @@ def get_all_boxes_in_single_scene(scene_number, from_rgb_detection, ldf: LyftDat
 
         next_sample_token = sample_record['next']
         sample_token = next_sample_token
+
+
+def parse_inference_data(raw_record):
+    example = parse_frustum_point_record(raw_record)
+    rot_frustum_point_cloud = example['rot_frustum_point_cloud']
+    one_hot_vec = tf.cast(example['one_hot_vec'], tf.float32)
+    batch_size = tf.shape(rot_frustum_point_cloud)[0]
+    seg_label = tf.zeros((NUM_POINTS_OF_PC,), tf.int32)
+    rot_box_center = tf.zeros((3,), tf.float32)
+    rot_angle_class = tf.zeros((), tf.int32)
+    rot_angle_residual = tf.zeros((), tf.float32)
+    size_class = tf.zeros((), tf.int32)
+    size_residual = tf.zeros((3,), tf.float32)
+
+    return rot_frustum_point_cloud, \
+           one_hot_vec, \
+           seg_label, \
+           rot_box_center, \
+           rot_angle_class, \
+           rot_angle_residual, \
+           size_class, \
+           size_residual
+
+
+def parse_data(raw_record):
+    example = parse_frustum_point_record(raw_record)
+    return example['rot_frustum_point_cloud'], \
+           tf.cast(example['one_hot_vec'], tf.float32), \
+           tf.cast(example['seg_label'], tf.int32), \
+           example['rot_box_center'], \
+           tf.cast(example['rot_angle_class'], tf.int32), \
+           example['rot_angle_residual'], \
+           tf.cast(example['size_class'], tf.int32), \
+           example['size_residual']
