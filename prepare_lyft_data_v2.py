@@ -346,7 +346,6 @@ class FrusutmPoints(object):
             'rot_box_center': float_list_feature(self._get_rotated_center().ravel()),  # (3,)
 
         }
-        print("cam token:",type(self.camera_token))
         example = tf.train.Example(features=tf.train.Features(feature=feature_dict))
 
         return example
@@ -633,28 +632,19 @@ def parse_data(raw_record):
            example['size_residual']
 
 
-def get_inference_results_tfexample(point_cloud,
-                                    seg_label,
-                                    seg_label_prob,
-                                    box_center,
-                                    heading_angle_class,
-                                    heading_angle_residual,
-                                    size_class,
-                                    size_residual,
-                                    frustum_angle,
-                                    score,
-                                    camera_token: str,
-                                    sample_token: str):
+def get_inference_results_tfexample(point_cloud, seg_label, seg_label_logits, box_center, heading_angle_class,
+                                    heading_angle_residual, size_class, size_residual, frustum_angle, score,
+                                    camera_token: str, sample_token: str):
     feature_dict = {
         # 'box3d_size': float_list_feature(self._get_wlh()),  # (3,)
         'size_class': int64_feature(size_class),
         'size_residual': float_list_feature(size_residual.ravel()),  # (3,)
 
-        'frustum_point_cloud': float_list_feature(point_cloud),  # (N,3)
+        'frustum_point_cloud': float_list_feature(point_cloud.ravel()),  # (N,3)
         # 'rot_frustum_point_cloud': float_list_feature(self._get_rotated_point_cloud().ravel()),  # (N,3)
 
         'seg_label': int64_list_feature(seg_label.ravel()),
-        'seg_label_prob': float_list_feature(seg_label_prob),
+        'seg_label_logits': float_list_feature(seg_label_logits.ravel()), #(NUM_PC_POINTS,2), second dimension is True/False
 
         # 'box_3d': float_list_feature(self.box_3d_pts.ravel()),  # (8,3)
         # 'rot_box_3d': float_list_feature(self._get_rotated_box_3d().ravel()),  # (8,3)
@@ -671,7 +661,7 @@ def get_inference_results_tfexample(point_cloud,
         # 'type_name': bytes_feature(self.box_in_sensor_coord.name.encode('utf8')),
         # 'one_hot_vec': int64_list_feature(self._get_one_hot_vec()),
 
-        'camera_token:': bytes_feature(camera_token.encode('utf8')),
+        'camera_token': bytes_feature(camera_token.encode('utf8')),
         # 'annotation_token': bytes_feature(self.box_in_sensor_coord.token.encode('utf8')),
 
         'box_center': float_list_feature(box_center),  # (3,)

@@ -1,4 +1,4 @@
-DATA_FILE="/Users/kanhua/Downloads/3d-object-detection-for-autonomous-vehicles/artifacts"
+DATA_FILE="/Users/kanhua/Downloads/3d-object-detection-for-autonomous-vehicles/artifacts/"
 MODEL_LOG_DIR="./log_v1_test/"
 TRAINED_MODEL_PATH="./log_v1_test/model.ckpt"
 

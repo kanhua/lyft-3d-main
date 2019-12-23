@@ -50,7 +50,7 @@ MODEL = importlib.import_module(FLAGS.model)
 NUM_CLASSES = 2
 NUM_CHANNEL = model_util.NUM_CHANNELS_OF_PC
 
-from prepare_lyft_data_v2 import parse_inference_data,\
+from prepare_lyft_data_v2 import parse_inference_data, \
     get_inference_results_tfexample
 from run_prepare_lyft_data import list_all_files
 
@@ -72,7 +72,7 @@ def get_session_and_ops():
             pointclouds_pl, one_hot_vec_pl, labels_pl, centers_pl, \
             heading_class_label_pl, heading_residual_label_pl, \
             size_class_label_pl, size_residual_label_pl, \
-            sample_token_tensor,camera_token_tensor,frustum_angle_tensor = \
+            sample_token_tensor, camera_token_tensor, frustum_angle_tensor = \
                 iterator.get_next()
 
             tf.ensure_shape(pointclouds_pl, (BATCH_SIZE, NUM_POINT, NUM_CHANNEL))
@@ -106,9 +106,9 @@ def get_session_and_ops():
                'center': end_points['center'],
                'end_points': end_points,
                'loss': loss,
-               'camera_token':camera_token_tensor,
-               'sample_token':sample_token_tensor,
-               'frustum_angle':frustum_angle_tensor}
+               'camera_token': camera_token_tensor,
+               'sample_token': sample_token_tensor,
+               'frustum_angle': frustum_angle_tensor}
         return sess, ops
 
 
@@ -125,20 +125,20 @@ def inference_new(sess, ops):
 
     ep = ops['end_points']
     from config_tool import get_paths
-    _,artifact_path,_= get_paths()
-    with tf.io.TFRecordWriter(os.path.join(artifact_path,"inference_results.tfrec")) as tfrw:
+    _, artifact_path, _ = get_paths()
+    with tf.io.TFRecordWriter(os.path.join(artifact_path, "inference_results.tfrec")) as tfrw:
         for count_num in itertools.count():
             try:
                 batch_logits, batch_centers, \
                 batch_heading_scores, batch_heading_residuals, \
                 batch_size_scores, batch_size_residuals, \
-                camera_token_bytes_string,sample_token_bytes_string,\
-                    point_clouds,seg_labels,frustum_angle= \
+                camera_token_bytes_string, sample_token_bytes_string, \
+                point_clouds, seg_labels, frustum_angle = \
                     sess.run([ops['logits'], ops['center'],
                               ep['heading_scores'], ep['heading_residuals'],
                               ep['size_scores'], ep['size_residuals'],
-                              ops['camera_token'],ops['sample_token'],
-                              ops['pointclouds_pl'],ops['labels_pl'],
+                              ops['camera_token'], ops['sample_token'],
+                              ops['pointclouds_pl'], ops['labels_pl'],
                               ops['frustum_angle']],
                              feed_dict=feed_dict)
 
@@ -153,42 +153,39 @@ def inference_new(sess, ops):
                 # batch_size score includes the score of segmentation mask accuracy, heading, and size
                 batch_scores = np.log(mask_mean_prob) + np.log(heading_prob) + np.log(size_prob)
 
-                heading_cls = np.argmax(heading_prob, 1)  # B
-                size_cls = np.argmax(size_prob, 1)  # B
+                heading_cls = np.argmax(softmax(batch_heading_scores), 1)  # B
+                size_cls = np.argmax(softmax(batch_size_scores), 1)  # B
 
-                print("batch_scores:", batch_scores)
-
-                current_batch_size=batch_logits.shape[0]
+                current_batch_size = batch_logits.shape[0]
                 for batch_index in range(current_batch_size):
-                    heading_res=batch_heading_residuals[batch_index, heading_cls[batch_index]]
-                    size_res=batch_size_residuals[batch_index,size_cls[batch_index],:]
+                    heading_res = batch_heading_residuals[batch_index, heading_cls[batch_index]]
+                    size_res = batch_size_residuals[batch_index, size_cls[batch_index], :]
 
-                    example_msg=get_inference_results_tfexample(point_cloud=point_clouds[batch_index,...],
-                                                    seg_label=seg_labels[batch_index,...],
-                                                    seg_label_prob=batch_logits[batch_index,...],
-                                                    box_center=batch_centers[batch_index,...],
-                                                    heading_angle_class=heading_cls[batch_index,...],
-                                                    heading_angle_residual=heading_res,
-                                                    size_class=size_cls[batch_index,...],
-                                                    size_residual=size_res,
-                                                    frustum_angle=frustum_angle[batch_index,:],
-                                                    score=batch_scores[batch_index,...],
-                                                    camera_token=camera_token_bytes_string[batch_index,...].decode('utf8'),
-                                                    sample_token=sample_token_bytes_string[batch_index,...].decode('utf8'))
+                    example_msg = get_inference_results_tfexample(point_cloud=point_clouds[batch_index, ...],
+                                                                  seg_label=seg_labels[batch_index, ...],
+                                                                  seg_label_logits=batch_logits[batch_index, ...],
+                                                                  box_center=batch_centers[batch_index, ...],
+                                                                  heading_angle_class=heading_cls[batch_index, ...],
+                                                                  heading_angle_residual=heading_res,
+                                                                  size_class=size_cls[batch_index, ...],
+                                                                  size_residual=size_res,
+                                                                  frustum_angle=frustum_angle[batch_index, ...],
+                                                                  score=batch_scores[batch_index, ...],
+                                                                  camera_token=camera_token_bytes_string[
+                                                                      batch_index].decode('utf8'),
+                                                                  sample_token=sample_token_bytes_string[
+                                                                      batch_index].decode('utf8'))
 
                     tfrw.write(example_msg.SerializeToString())
-
 
                 # Finished computing scores
             except tf.errors.OutOfRangeError:
                 pass
 
 
-
 def test_new():
     sess, ops = get_session_and_ops()
     inference_new(sess, ops)
-
 
 
 if __name__ == '__main__':
