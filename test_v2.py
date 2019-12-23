@@ -124,8 +124,9 @@ def inference_new(sess, ops):
     feed_dict = {ops['is_training_pl']: False}
 
     ep = ops['end_points']
-
-    with tf.io.TFRecordWriter("./unit_test_data/scene1_test.tfrec") as tfrw:
+    from config_tool import get_paths
+    _,artifact_path,_= get_paths()
+    with tf.io.TFRecordWriter(os.path.join(artifact_path,"inference_results.tfrec")) as tfrw:
         for count_num in itertools.count():
             try:
                 batch_logits, batch_centers, \
@@ -137,7 +138,7 @@ def inference_new(sess, ops):
                               ep['heading_scores'], ep['heading_residuals'],
                               ep['size_scores'], ep['size_residuals'],
                               ops['camera_token'],ops['sample_token'],
-                              ops['point_clouds_pl'],ops['labels_pl'],
+                              ops['pointclouds_pl'],ops['labels_pl'],
                               ops['frustum_angle']],
                              feed_dict=feed_dict)
 

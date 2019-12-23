@@ -339,13 +339,14 @@ class FrusutmPoints(object):
             'type_name': bytes_feature(self.box_in_sensor_coord.name.encode('utf8')),
             'one_hot_vec': int64_list_feature(self._get_one_hot_vec()),
 
-            'camera_token:': bytes_feature(self.camera_token.encode('utf8')),
+            'camera_token': bytes_feature(self.camera_token.encode('utf8')),
             'annotation_token': bytes_feature(self.box_in_sensor_coord.token.encode('utf8')),
 
             'box_center': float_list_feature(self.box_in_sensor_coord.center.ravel()),  # (3,)
             'rot_box_center': float_list_feature(self._get_rotated_center().ravel()),  # (3,)
 
         }
+        print("cam token:",type(self.camera_token))
         example = tf.train.Example(features=tf.train.Features(feature=feature_dict))
 
         return example
@@ -406,10 +407,11 @@ def parse_frustum_point_record(tfexample_message: str):
         "one_hot_vec": tf.FixedLenFeature((NUM_CLASS,), tf.int64),
         "rot_box_center": tf.FixedLenFeature((3,), tf.float32),
 
-        "sample_token":tf.FixedLenFeature((),tf.string),
-        "camera_token":tf.FixedLenFeature((),tf.string),
+        "sample_token": tf.FixedLenFeature((), tf.string),
 
-        "frustum_angle":tf.FixedLenFeature((),tf.float32)
+        "frustum_angle": tf.FixedLenFeature((), tf.float32),
+
+        "camera_token": tf.FixedLenFeature((), tf.string)
 
     }
 
@@ -605,9 +607,9 @@ def parse_inference_data(raw_record):
     rot_angle_residual = tf.zeros((), tf.float32)
     size_class = tf.zeros((), tf.int32)
     size_residual = tf.zeros((3,), tf.float32)
-    camera_token=example['camera_token']
-    sample_token=example['sample_token']
-    frustum_angle=example['frustum_angle']
+    camera_token = example['camera_token']
+    sample_token = example['sample_token']
+    frustum_angle = example['frustum_angle']
 
     return rot_frustum_point_cloud, \
            one_hot_vec, \
@@ -616,7 +618,7 @@ def parse_inference_data(raw_record):
            rot_angle_class, \
            rot_angle_residual, \
            size_class, \
-           size_residual,sample_token,camera_token,frustum_angle
+           size_residual ,sample_token, camera_token, frustum_angle
 
 
 def parse_data(raw_record):
@@ -632,54 +634,52 @@ def parse_data(raw_record):
 
 
 def get_inference_results_tfexample(point_cloud,
-                            seg_label,
-                            seg_label_prob,
-                            box_center,
-                            heading_angle_class,
-                            heading_angle_residual,
-                            size_class,
-                            size_residual,
-                            frustum_angle,
-                            score,
-                            camera_token:str,
-                            sample_token:str):
+                                    seg_label,
+                                    seg_label_prob,
+                                    box_center,
+                                    heading_angle_class,
+                                    heading_angle_residual,
+                                    size_class,
+                                    size_residual,
+                                    frustum_angle,
+                                    score,
+                                    camera_token: str,
+                                    sample_token: str):
     feature_dict = {
-        #'box3d_size': float_list_feature(self._get_wlh()),  # (3,)
+        # 'box3d_size': float_list_feature(self._get_wlh()),  # (3,)
         'size_class': int64_feature(size_class),
         'size_residual': float_list_feature(size_residual.ravel()),  # (3,)
 
         'frustum_point_cloud': float_list_feature(point_cloud),  # (N,3)
-        #'rot_frustum_point_cloud': float_list_feature(self._get_rotated_point_cloud().ravel()),  # (N,3)
+        # 'rot_frustum_point_cloud': float_list_feature(self._get_rotated_point_cloud().ravel()),  # (N,3)
 
         'seg_label': int64_list_feature(seg_label.ravel()),
-        'seg_label_prob':float_list_feature(seg_label_prob),
+        'seg_label_prob': float_list_feature(seg_label_prob),
 
-        #'box_3d': float_list_feature(self.box_3d_pts.ravel()),  # (8,3)
-        #'rot_box_3d': float_list_feature(self._get_rotated_box_3d().ravel()),  # (8,3)
+        # 'box_3d': float_list_feature(self.box_3d_pts.ravel()),  # (8,3)
+        # 'rot_box_3d': float_list_feature(self._get_rotated_box_3d().ravel()),  # (8,3)
 
-        #'box_2d': float_list_feature(self.box_2d_pts.ravel()),  # (4,)
+        # 'box_2d': float_list_feature(self.box_2d_pts.ravel()),  # (4,)
 
-        #'heading_angle': float_feature(heading_angle),
-        #'rot_heading_angle': float_feature(self._get_rotated_heading_angle()),
+        # 'heading_angle': float_feature(heading_angle),
+        # 'rot_heading_angle': float_feature(self._get_rotated_heading_angle()),
         'heading_angle_class': int64_feature(heading_angle_class),
         'heading_angle_residual': float_feature(heading_angle_residual),
 
         'frustum_angle': float_feature(frustum_angle),
         'sample_token': bytes_feature(sample_token.encode('utf8')),
-        #'type_name': bytes_feature(self.box_in_sensor_coord.name.encode('utf8')),
-        #'one_hot_vec': int64_list_feature(self._get_one_hot_vec()),
+        # 'type_name': bytes_feature(self.box_in_sensor_coord.name.encode('utf8')),
+        # 'one_hot_vec': int64_list_feature(self._get_one_hot_vec()),
 
         'camera_token:': bytes_feature(camera_token.encode('utf8')),
-        #'annotation_token': bytes_feature(self.box_in_sensor_coord.token.encode('utf8')),
+        # 'annotation_token': bytes_feature(self.box_in_sensor_coord.token.encode('utf8')),
 
         'box_center': float_list_feature(box_center),  # (3,)
-        #'rot_box_center': float_list_feature(self._get_rotated_center().ravel()),  # (3,)
+        # 'rot_box_center': float_list_feature(self._get_rotated_center().ravel()),  # (3,)
 
-        'score':float_feature(score)
+        'score': float_feature(score)
 
     }
     example = tf.train.Example(features=tf.train.Features(feature=feature_dict))
 
     return example
-
-

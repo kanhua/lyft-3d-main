@@ -114,14 +114,14 @@ def test_parse_inference_data():
     full_dataset = tf.data.TFRecordDataset(filenames)
     parsed_dataset = full_dataset.map(parse_inference_data)
 
-    for batched_data in parsed_dataset.batch(3):
-        print(batched_data[2])
+    for batched_data in parsed_dataset.take(1):
+        print(batched_data)
 
 
 
 #test_one_sample_token()
 #test_plot_one_frustum()
-#test_write_tfrecord()
+test_write_tfrecord()
 #test_one_scene()
 
 # test_load_example()
