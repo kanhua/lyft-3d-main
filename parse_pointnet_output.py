@@ -1,5 +1,7 @@
-import pickle
+import tensorflow as tf
+tf.compat.v1.enable_eager_execution()
 import numpy as np
+import pickle
 
 from provider import class2angle, class2size
 from model_util import NUM_HEADING_BIN, NUM_SIZE_CLUSTER
@@ -7,7 +9,7 @@ from prepare_lyft_data import get_sensor_to_world_transform_matrix_from_sample_d
     convert_box_to_world_coord_with_sample_data_token
 from lyft_dataset_sdk.utils.data_classes import Box, Quaternion
 from lyft_dataset_sdk.lyftdataset import LyftDataset
-
+from prepare_lyft_data_v2 import parse_inference_record
 
 def rotate_pc_along_y(pc, rot_angle):
     '''
@@ -24,6 +26,27 @@ def rotate_pc_along_y(pc, rot_angle):
     rotmat = np.array([[cosval, -sinval], [sinval, cosval]])
     npc[:, [0, 2]] = np.dot(npc[:, [0, 2]], np.transpose(rotmat))
     return npc
+
+
+def read_frustum_pointnet_output_v2(ldt:LyftDataset,inference_tfrecord_file):
+
+    raw_dataset = tf.data.TFRecordDataset(inference_tfrecord_file)
+    for raw_record in raw_dataset:
+        example=parse_inference_record(raw_record)
+
+
+        inferred_box = get_box_from_inference(lyftd=ldt,
+                                              heading_cls=example['rot_heading_angle_class'].numpy(),
+                                              heading_res=example['rot_heading_angle_residual'].numpy(),
+                                              rot_angle=example['frustum_angle'].numpy(),
+                                              size_cls=example['size_class'].numpy(),
+                                              size_res=example['size_residual'].numpy(),
+                                              center_coord=example['rot_box_center'].numpy(),
+                                              sample_data_token=example['camera_token'].numpy().decode('utf8'),
+                                              score=example['score'].numpy())
+
+        yield inferred_box
+
 
 
 def read_frustum_pointnet_output(ldt: LyftDataset, inference_pickle_file, token_pickle_file,from_rgb_detection:bool):

@@ -617,7 +617,7 @@ def parse_inference_data(raw_record):
            rot_angle_class, \
            rot_angle_residual, \
            size_class, \
-           size_residual ,sample_token, camera_token, frustum_angle
+           size_residual, sample_token, camera_token, frustum_angle
 
 
 def parse_data(raw_record):
@@ -640,11 +640,12 @@ def get_inference_results_tfexample(point_cloud, seg_label, seg_label_logits, bo
         'size_class': int64_feature(size_class),
         'size_residual': float_list_feature(size_residual.ravel()),  # (3,)
 
-        'frustum_point_cloud': float_list_feature(point_cloud.ravel()),  # (N,3)
+        'rot_frustum_point_cloud': float_list_feature(point_cloud.ravel()),  # (N,3)
         # 'rot_frustum_point_cloud': float_list_feature(self._get_rotated_point_cloud().ravel()),  # (N,3)
 
         'seg_label': int64_list_feature(seg_label.ravel()),
-        'seg_label_logits': float_list_feature(seg_label_logits.ravel()), #(NUM_PC_POINTS,2), second dimension is True/False
+        'seg_label_logits': float_list_feature(seg_label_logits.ravel()),
+        # (NUM_PC_POINTS,2), second dimension is True/False
 
         # 'box_3d': float_list_feature(self.box_3d_pts.ravel()),  # (8,3)
         # 'rot_box_3d': float_list_feature(self._get_rotated_box_3d().ravel()),  # (8,3)
@@ -653,8 +654,8 @@ def get_inference_results_tfexample(point_cloud, seg_label, seg_label_logits, bo
 
         # 'heading_angle': float_feature(heading_angle),
         # 'rot_heading_angle': float_feature(self._get_rotated_heading_angle()),
-        'heading_angle_class': int64_feature(heading_angle_class),
-        'heading_angle_residual': float_feature(heading_angle_residual),
+        'rot_heading_angle_class': int64_feature(heading_angle_class),
+        'rot_heading_angle_residual': float_feature(heading_angle_residual),
 
         'frustum_angle': float_feature(frustum_angle),
         'sample_token': bytes_feature(sample_token.encode('utf8')),
@@ -664,7 +665,7 @@ def get_inference_results_tfexample(point_cloud, seg_label, seg_label_logits, bo
         'camera_token': bytes_feature(camera_token.encode('utf8')),
         # 'annotation_token': bytes_feature(self.box_in_sensor_coord.token.encode('utf8')),
 
-        'box_center': float_list_feature(box_center),  # (3,)
+        'rot_box_center': float_list_feature(box_center),  # (3,)
         # 'rot_box_center': float_list_feature(self._get_rotated_center().ravel()),  # (3,)
 
         'score': float_feature(score)
@@ -673,3 +674,38 @@ def get_inference_results_tfexample(point_cloud, seg_label, seg_label_logits, bo
     example = tf.train.Example(features=tf.train.Features(feature=feature_dict))
 
     return example
+
+
+def parse_inference_record(tfexample_message: str):
+    NUM_CLASS = len(g_type_object_of_interest)
+    NUM_POINT = NUM_POINTS_OF_PC
+
+    keys_to_features = {
+        "size_class": tf.FixedLenFeature((), tf.int64),
+        "size_residual": tf.FixedLenFeature((3,), tf.float32),
+
+        # "frustum_point_cloud": tf.FixedLenFeature((NUM_POINT, NUM_CHANNELS_OF_PC), tf.float32),
+        "rot_frustum_point_cloud": tf.FixedLenFeature((NUM_POINT, NUM_CHANNELS_OF_PC), tf.float32),
+        "seg_label": tf.FixedLenFeature((NUM_POINT,), tf.int64),
+        "seg_label_logits": tf.FixedLenFeature((NUM_POINT, 2), tf.float32),
+
+        # "box_3d": tf.FixedLenFeature((8, 3), tf.float32),
+        # "rot_box_3d": tf.FixedLenFeature((8, 3), tf.float32),
+        # "box_2d": tf.FixedLenFeature((4,), tf.float32),
+        # "type_name": tf.FixedLenFeature((), tf.string),
+
+        "rot_heading_angle_class": tf.FixedLenFeature((), tf.int64),
+        "rot_heading_angle_residual": tf.FixedLenFeature((), tf.float32),
+
+        "frustum_angle": tf.FixedLenFeature((), tf.float32),
+        "sample_token": tf.FixedLenFeature((), tf.string),
+
+        "camera_token": tf.FixedLenFeature((), tf.string),
+        "rot_box_center": tf.FixedLenFeature((3,), tf.float32),
+        "score": tf.FixedLenFeature((), tf.string)
+
+    }
+
+    parsed_example = tf.io.parse_single_example(tfexample_message, keys_to_features)
+
+    return parsed_example

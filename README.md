@@ -65,7 +65,7 @@ this may due to that the path setting in the configuration files are absolute ra
 
 TODO: Full scripts to detect all data not completed yet. 
 - Set the object detection model path in ```user_config.txt```. See ```default_config.txt``` for examples.
-- See ```test_object_detection.py``` for an example of running object detection
+- See ```parse_pointnet_output.py``` for an example of running object detection
 
 
 ## Workflow of training the model on AWS
