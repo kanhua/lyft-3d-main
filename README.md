@@ -24,6 +24,11 @@ sh lyft_test_v2_on_local.sh
 So far, the program searches the pattern ```scene_\d+_train.tfrec``` in the designated directories assigned 
 in ```lyft_train_v2_on_local.sh``` and ```lyft_test_v2_on_local.sh```.
 
+- Run ```infer_train_eval_data.sh```
+- Run ```test_score_calculator.py```
+
+
+
 #### Not completed yet:
 Use the function ```parse_pointnet_output.get_box_from_inference()``` to transform the inferred results back to world coordinates. 
 This needs two steps:
@@ -66,6 +71,7 @@ this may due to that the path setting in the configuration files are absolute ra
 TODO: Full scripts to detect all data not completed yet. 
 - Set the object detection model path in ```user_config.txt```. See ```default_config.txt``` for examples.
 - See ```parse_pointnet_output.py``` for an example of running object detection
+
 
 
 ## Workflow of training the model on AWS
