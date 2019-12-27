@@ -65,7 +65,7 @@ def parse_train_csv(data_file=default_train_file, with_score=False):
     return train_objects
 
 
-
+import warnings
 def parse_string_to_box(ps, with_score=True,to_3dbox=False,sample_token=None) -> List[Box]:
     from lyft_dataset_sdk.eval.detection.mAP_evaluation import Box3D
     boxes = []
@@ -83,6 +83,10 @@ def parse_string_to_box(ps, with_score=True,to_3dbox=False,sample_token=None) ->
         else:
             x, y, z, w, l, h, yaw, c = tuple(object_params[i * 8: (i + 1) * 8])
             score=1.0   # assume ground truth
+
+        if not (float(w)>0 and float(l) >0 and float(h) > 0):
+            warnings.warn("wrong wlh value")
+            continue
 
         orient_q = Quaternion(axis=[0, 0, 1], angle=float(yaw))
         center_pos = [float(x), float(y), float(z)]

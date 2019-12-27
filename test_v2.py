@@ -180,7 +180,7 @@ def inference_new(sess, ops):
 
                 # Finished computing scores
             except tf.errors.OutOfRangeError:
-                pass
+                break
 
 
 def test_new():

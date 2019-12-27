@@ -702,7 +702,7 @@ def parse_inference_record(tfexample_message: str):
 
         "camera_token": tf.FixedLenFeature((), tf.string),
         "rot_box_center": tf.FixedLenFeature((3,), tf.float32),
-        "score": tf.FixedLenFeature((), tf.string)
+        "score": tf.FixedLenFeature((), tf.float32)
 
     }
 

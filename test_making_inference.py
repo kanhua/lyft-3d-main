@@ -5,8 +5,8 @@ This file tests how the results are put together to be Box3D and the run evaluat
 """
 
 import numpy as np
-from parse_pointnet_output import read_frustum_pointnet_output
-from prepare_lyft_data import level5data
+from parse_pointnet_output import read_frustum_pointnet_output_v2
+from prepare_lyft_data import load_train_data
 from lyft_dataset_sdk.eval.detection.mAP_evaluation import Box3D, get_ious
 from lyft_dataset_sdk.utils.data_classes import Box
 from typing import List
@@ -16,7 +16,6 @@ import pandas as pd
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("from_rgb_detection", False, "whether the frustum is generated from RGB detection")
 flags.DEFINE_string("inference_file", None, "file output from test.py")
-flags.DEFINE_string("token_file", None, "pickle file that contained the token and other information")
 flags.DEFINE_string("pred_file", None, "output csv file name")
 flags.DEFINE_string("data_name", "train", "name of the data: train or test")
 
@@ -107,33 +106,36 @@ def write_output_csv(pred_boxes: List[Box], sample_token_list, output_csv_file: 
 
 def main(argv):
     inference_pickle_file = FLAGS.inference_file
-    token_pickle_file = FLAGS.token_file
     pred_csv_file = FLAGS.pred_file
     FROM_RGB_DETECTION = FLAGS.from_rgb_detection
     data_name = FLAGS.data_name
     if data_name == 'train':
-        data = level5data
+        data = load_train_data()
     elif data_name == 'test':
         from test_data_loader import level5testdata
         data = level5testdata
 
-    pred_boxes, gt_boxes, sample_token_list = read_frustum_pointnet_output(data,
-                                                                           inference_pickle_file=inference_pickle_file,
-                                                                           token_pickle_file=token_pickle_file,
-                                                                           from_rgb_detection=FROM_RGB_DETECTION)
+    pred_boxes=[]
+    sample_token_list=[]
+    for box, sample_token in read_frustum_pointnet_output_v2(data,inference_pickle_file):
+        pred_boxes.append(box)
+        sample_token_list.append(sample_token)
+
     write_output_csv(pred_boxes, sample_token_list, pred_csv_file)
 
-    if not FROM_RGB_DETECTION:
-        pred_boxes_3d = []
-        gt_boxes_3d = []
+    # if not FROM_RGB_DETECTION:
+    #     pred_boxes_3d = []
+    #     gt_boxes_3d = []
+    #
+    #     for i in range(len(pred_boxes)):
+    #         pred_boxes_3d.append(box_to_box3D(pred_boxes[i], sample_token_list[i]))
+    #         gt_boxes_3d.append(box_to_box3D(gt_boxes[i], sample_token_list[i]))
+    #
+    #     for pbox in pred_boxes_3d:
+    #         ious = get_ious(gt_boxes_3d, pbox)
+    #         print(np.array(ious).max())
 
-        for i in range(len(pred_boxes)):
-            pred_boxes_3d.append(box_to_box3D(pred_boxes[i], sample_token_list[i]))
-            gt_boxes_3d.append(box_to_box3D(gt_boxes[i], sample_token_list[i]))
 
-        for pbox in pred_boxes_3d:
-            ious = get_ious(gt_boxes_3d, pbox)
-            print(np.array(ious).max())
 
 
 if __name__ == "__main__":
