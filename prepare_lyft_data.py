@@ -35,7 +35,7 @@ level5data=load_train_data()
 
 DATA_PATH, ARTIFACT_PATH, _ = get_paths()
 
-default_train_file = DATA_PATH + "train.csv"
+default_train_file = os.path.join(DATA_PATH , "train.csv")
 
 
 def parse_train_csv(data_file=default_train_file, with_score=False):

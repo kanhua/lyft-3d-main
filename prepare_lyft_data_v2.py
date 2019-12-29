@@ -248,7 +248,7 @@ class FrusutmPoints(object):
         self.camera_token = camera_token
         self.lyftd = lyftd
         self.camera_intrinsic = self._get_camera_intrinsic()
-        self.object_of_interest_name = ['car', 'pedestrian', 'cyclist']
+        #self.object_of_interest_name = ['car', 'pedestrian', 'cyclist']
 
     def _get_center_view_rotate_angle(self):
         return np.pi / 2 + self.frustum_angle
@@ -282,7 +282,7 @@ class FrusutmPoints(object):
         return size_class, size_residual
 
     def _get_one_hot_vec(self):
-        one_hot_vec = np.zeros(len(self.object_of_interest_name), dtype=np.int)
+        one_hot_vec = np.zeros(len(g_type2onehotclass), dtype=np.int)
         one_hot_vec[g_type2onehotclass[self.box_in_sensor_coord.name]] = 1
         return one_hot_vec
 

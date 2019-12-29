@@ -122,10 +122,10 @@ def test_parse_inference_data():
 #test_one_sample_token()
 #test_plot_one_frustum()
 test_write_tfrecord()
-test_one_scene()
+#test_one_scene()
 
-# test_load_example()
+test_load_example()
 
 #test_tfdataset()
 
-test_parse_inference_data()
+#test_parse_inference_data()
