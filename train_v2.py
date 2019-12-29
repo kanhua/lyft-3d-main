@@ -240,7 +240,7 @@ def train_one_epoch(sess, ops, train_writer, model_saver):
     iou3ds_sum = 0
     iou3d_correct_cnt = 0
 
-    for count_num in itertools.count():
+    for count_num in itertools.count(start=1):
         try:
 
             summary, step, _, loss_val, logits_val, centers_pred_val, \
@@ -264,7 +264,6 @@ def train_one_epoch(sess, ops, train_writer, model_saver):
             iou3d_correct_cnt += np.sum(iou3ds >= 0.7)
 
             if count_num % 20 == 0:
-                count_num += 1
                 # if (batch_idx + 1) % 10 == 0:
                 #   log_string(' -- %03d / %03d --' % (batch_idx + 1, num_batches))
                 log_string('mean loss: %f' % (loss_sum / (count_num * BATCH_SIZE)))
