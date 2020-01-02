@@ -15,7 +15,6 @@ level5data = load_train_data()
 
 
 def process_one_scene(scene_num):
-    print("writing one scene:")
     _, artifact_path, _ = get_paths()
     with tf.io.TFRecordWriter(os.path.join(artifact_path, "scene_{}_train.tfrec".format(scene_num))) as tfrw:
         for fp in get_all_boxes_in_single_scene(scene_num, False, level5data):
