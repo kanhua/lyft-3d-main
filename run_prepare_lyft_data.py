@@ -8,6 +8,7 @@ from config_tool import get_paths
 import os
 
 flags.DEFINE_list("scenes", "", "scenes to be processed")
+flags.DEFINE_string("data_type", "train", "file type")
 
 FLAGS = flags.FLAGS
 
@@ -16,7 +17,8 @@ level5data = load_train_data()
 
 def process_one_scene(scene_num):
     _, artifact_path, _ = get_paths()
-    with tf.io.TFRecordWriter(os.path.join(artifact_path, "scene_{}_train.tfrec".format(scene_num))) as tfrw:
+    with tf.io.TFRecordWriter(
+            os.path.join(artifact_path, "scene_{0}_{1}.tfrec".format(scene_num, FLAGS.data_type))) as tfrw:
         for fp in get_all_boxes_in_single_scene(scene_num, False, level5data):
             tfexample = fp.to_train_example()
             tfrw.write(tfexample.SerializeToString())

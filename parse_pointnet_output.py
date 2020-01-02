@@ -4,7 +4,7 @@ tf.compat.v1.enable_eager_execution()
 import numpy as np
 import pickle
 
-from provider import class2angle, class2size
+from prepare_lyft_data_v2 import class2angle, class2size
 from model_util import NUM_HEADING_BIN, NUM_SIZE_CLUSTER
 from prepare_lyft_data import get_sensor_to_world_transform_matrix_from_sample_data_token, \
     convert_box_to_world_coord_with_sample_data_token
@@ -141,6 +141,7 @@ def get_box_from_inference(lyftd: LyftDataset, heading_cls, heading_res, rot_ang
                            size_cls, size_res, center_coord, sample_data_token, score) -> Box:
     heading_angle = get_heading_angle(heading_cls, heading_res, rot_angle)
     size = get_size(size_cls, size_res)
+    rot_angle += np.pi / 2
     center_sensor_coord = get_center_in_sensor_coord(center_coord=center_coord, rot_angle=rot_angle)
 
     # Make Box
