@@ -16,8 +16,8 @@ import matplotlib.pyplot as plt
 
 
 def load_test_data():
-    from config_tool import get_paths
-    DATA_PATH, ARTIFACT_PATH, _ = get_paths()
+    from config_tool import get_test_data_path
+    DATA_PATH = get_test_data_path()
     level5data_snapshot_file = "level5testdata.pickle"
 
     if os.path.exists(os.path.join(DATA_PATH, level5data_snapshot_file)):
@@ -25,8 +25,8 @@ def load_test_data():
             level5testdata = pickle.load(fp)
     else:
 
-        level5testdata = LyftDataset(data_path='/Users/kanhua/Downloads/3d-object-detection-test',
-                                     json_path='/Users/kanhua/Downloads/3d-object-detection-test/data/',
+        level5testdata = LyftDataset(data_path=DATA_PATH,
+                                     json_path=os.path.join(DATA_PATH, 'data/'),
                                      verbose=True)
         with open(os.path.join(DATA_PATH, level5data_snapshot_file), 'wb') as fp:
             pickle.dump(level5testdata, fp)

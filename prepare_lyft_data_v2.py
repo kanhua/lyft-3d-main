@@ -272,12 +272,19 @@ class FrustumGenerator(object):
 
                 box_2d_pts = np.array([xmin, ymin, xmax, ymax])
 
+                point_clouds_in_box = point_clouds_in_box[0:3, :]
+                point_clouds_in_box = np.transpose(point_clouds_in_box)
+
+                if point_clouds_in_box.shape[0] < 300:
+                    continue
+
+                assert object_id==int(object_id)
                 fp = FrustumPoints2D(lyftd=self.lyftd, point_cloud_in_box=point_clouds_in_box, box_2d_pts=box_2d_pts,
                                      frustum_angle=frustum_angle,
                                      sample_token=self.sample_record['token'],
                                      camera_token=camera_token,
                                      score=score,
-                                     object_name=self.object_of_interest_name[object_id - 1])
+                                     object_name=self.object_of_interest_name[int(object_id) - 1])
 
                 yield fp
 
@@ -356,7 +363,7 @@ class FrusutmPoints(object):
         size_lwh = np.array([l, w, h])
         return size_lwh
 
-    def _flat_pointclout(self):
+    def _flat_pointcloud(self):
         # not support lidar data with intensity yet
         assert self.point_cloud_in_box.shape[1] == 3
 
@@ -373,7 +380,7 @@ class FrusutmPoints(object):
             'size_class': int64_feature(size_class),
             'size_residual': float_list_feature(size_residual.ravel()),  # (3,)
 
-            'frustum_point_cloud': float_list_feature(self._flat_pointclout()),  # (N,3)
+            'frustum_point_cloud': float_list_feature(self._flat_pointcloud()),  # (N,3)
             'rot_frustum_point_cloud': float_list_feature(self._get_rotated_point_cloud().ravel()),  # (N,3)
 
             'seg_label': int64_list_feature(self.seg_label.ravel()),
@@ -438,7 +445,12 @@ class FrusutmPoints(object):
 class FrustumPoints2D(FrusutmPoints):
     def __init__(self, lyftd: LyftDataset, point_cloud_in_box,
                  box_2d_pts, frustum_angle, sample_token, camera_token, score, object_name):
-        self.point_cloud_in_box = point_cloud_in_box
+
+
+        self.NUM_POINT = NUM_POINTS_OF_PC
+        sel_index = np.random.choice(point_cloud_in_box.shape[0], self.NUM_POINT)
+        self.point_cloud_in_box = point_cloud_in_box[sel_index, :]  # Nx3
+
         self.lyftd = lyftd
         self.camera_token = camera_token
         self.box_2d_pts = box_2d_pts
@@ -450,7 +462,7 @@ class FrustumPoints2D(FrusutmPoints):
     def to_train_example(self) -> tf.train.Example:
         feature_dict = {
 
-            'frustum_point_cloud': float_list_feature(self._flat_pointclout()),  # (N,3)
+            'frustum_point_cloud': float_list_feature(self._flat_pointcloud()),  # (N,3)
             'rot_frustum_point_cloud': float_list_feature(self._get_rotated_point_cloud().ravel()),  # (N,3)
 
             'box_2d': float_list_feature(self.box_2d_pts.ravel()),  # (4,)
@@ -684,7 +696,7 @@ def get_frustum_angle(lyftd: LyftDataset, cam_token, xmax, xmin, ymax, ymin):
     return frustum_angle
 
 
-def get_all_boxes_in_single_scene(scene_number, from_rgb_detection, ldf: LyftDataset):
+def get_all_boxes_in_single_scene(scene_number, from_rgb_detection, ldf: LyftDataset,object_classifier=None):
     start_sample_token = ldf.scene[scene_number]['first_sample_token']
     sample_token = start_sample_token
     counter = 0
@@ -699,7 +711,7 @@ def get_all_boxes_in_single_scene(scene_number, from_rgb_detection, ldf: LyftDat
                 yield fp
         else:
             # reserved for rgb detection data
-            for fp in fg.generate_frustums_from_2d():
+            for fp in fg.generate_frustums_from_2d(object_classifier):
                 yield fp
 
 
