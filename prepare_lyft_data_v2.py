@@ -1,5 +1,4 @@
 from tqdm import tqdm
-import pandas as pd
 import numpy as np
 import os
 import pickle
@@ -12,7 +11,6 @@ from lyft_dataset_sdk.utils.data_classes import LidarPointCloud, Box, Quaternion
 from lyft_dataset_sdk.utils.geometry_utils import view_points, transform_matrix, \
     points_in_box, BoxVisibility
 
-import matplotlib.pyplot as plt
 import warnings
 
 from provider import rotate_pc_along_y
@@ -22,6 +20,8 @@ from model_util import NUM_POINTS_OF_PC, g_type_object_of_interest
 from model_util import NUM_CHANNELS_OF_PC
 
 from absl import logging
+
+from skimage.io import imread
 
 
 def load_train_data():
@@ -228,6 +228,59 @@ class FrustumGenerator(object):
 
                 yield fp
 
+    def generate_frustums_from_2d(self, object_classifier):
+
+        clip_distance = 2.0
+        max_clip_distance = 60
+
+        for cam_key in self.camera_keys:
+            camera_token = self.sample_record['data'][cam_key]
+            camera_data = self.lyftd.get('sample_data', camera_token)
+            point_cloud, lidar_token = self._read_pointcloud(use_multisweep=False)
+            # lidar data needs to be reloaded every time
+            # Idea: this part can be expanded: different camera image data could use different lidar data,
+            # CAM_FRONT_RIGHT can also use LIDAR_FRONT_RIGHT
+
+            image_path, box_list, cam_intrinsic = self.lyftd.get_sample_data(camera_token,
+                                                                             box_vis_level=BoxVisibility.ANY,
+                                                                             selected_anntokens=None)
+
+            _, point_cloud_in_camera_coord_2d = transform_pc_to_camera_coord(camera_data,
+                                                                             self.lyftd.get('sample_data', lidar_token),
+                                                                             point_cloud, self.lyftd)
+            image_array = imread(image_path)
+
+            all_sel_boxes = object_classifier.detect_multi_object(image_array)
+
+            for idx in range(all_sel_boxes.shape[0]):
+                xmin, xmax, ymin, ymax, score, object_id = all_sel_boxes[idx, :]
+
+                mask = mask_points(point_cloud_in_camera_coord_2d, 0, image_array.shape[1], ymin=0,
+                                   ymax=image_array.shape[0])
+
+                distance_mask = (point_cloud.points[2, :] > clip_distance) & (
+                        point_cloud.points[2, :] < max_clip_distance)
+
+                mask = np.logical_and(mask, distance_mask)
+
+                box_mask = mask_points(point_cloud_in_camera_coord_2d, xmin, xmax, ymin, ymax)
+                mask = np.logical_and(mask, box_mask)
+
+                point_clouds_in_box = point_cloud.points[:, mask]
+
+                frustum_angle = get_frustum_angle(self.lyftd, camera_token, xmax, xmin, ymax, ymin)
+
+                box_2d_pts = np.array([xmin, ymin, xmax, ymax])
+
+                fp = FrustumPoints2D(lyftd=self.lyftd, point_cloud_in_box=point_clouds_in_box, box_2d_pts=box_2d_pts,
+                                     frustum_angle=frustum_angle,
+                                     sample_token=self.sample_record['token'],
+                                     camera_token=camera_token,
+                                     score=score,
+                                     object_name=self.object_of_interest_name[object_id - 1])
+
+                yield fp
+
 
 class FrusutmPoints(object):
     def __init__(self, lyftd: LyftDataset, box_in_sensor_coord: Box, point_cloud_in_box, box_3d_pts,
@@ -248,7 +301,8 @@ class FrusutmPoints(object):
         self.camera_token = camera_token
         self.lyftd = lyftd
         self.camera_intrinsic = self._get_camera_intrinsic()
-        #self.object_of_interest_name = ['car', 'pedestrian', 'cyclist']
+        # self.object_of_interest_name = ['car', 'pedestrian', 'cyclist']
+        self.object_name = self.box_in_sensor_coord.name
 
     def _get_center_view_rotate_angle(self):
         return np.pi / 2 + self.frustum_angle
@@ -283,7 +337,7 @@ class FrusutmPoints(object):
 
     def _get_one_hot_vec(self):
         one_hot_vec = np.zeros(len(g_type2onehotclass), dtype=np.int)
-        one_hot_vec[g_type2onehotclass[self.box_in_sensor_coord.name]] = 1
+        one_hot_vec[g_type2onehotclass[self.object_name]] = 1
         return one_hot_vec
 
     def _get_rotated_heading_angle(self):
@@ -379,6 +433,39 @@ class FrusutmPoints(object):
         pc = self._get_rotated_point_cloud()
         projected_pts = view_points(np.transpose(pc), view=view_matrix, normalize=False)
         ax.scatter(projected_pts[0, :], projected_pts[1, :], s=0.1)
+
+
+class FrustumPoints2D(FrusutmPoints):
+    def __init__(self, lyftd: LyftDataset, point_cloud_in_box,
+                 box_2d_pts, frustum_angle, sample_token, camera_token, score, object_name):
+        self.point_cloud_in_box = point_cloud_in_box
+        self.lyftd = lyftd
+        self.camera_token = camera_token
+        self.box_2d_pts = box_2d_pts
+        self.frustum_angle = frustum_angle
+        self.sample_token = sample_token
+        self.score = score
+        self.object_name = object_name
+
+    def to_train_example(self) -> tf.train.Example:
+        feature_dict = {
+
+            'frustum_point_cloud': float_list_feature(self._flat_pointclout()),  # (N,3)
+            'rot_frustum_point_cloud': float_list_feature(self._get_rotated_point_cloud().ravel()),  # (N,3)
+
+            'box_2d': float_list_feature(self.box_2d_pts.ravel()),  # (4,)
+
+            'frustum_angle': float_feature(self.frustum_angle),
+            'sample_token': bytes_feature(self.sample_token.encode('utf8')),
+            'type_name': bytes_feature(self.box_in_sensor_coord.name.encode('utf8')),
+            'one_hot_vec': int64_list_feature(self._get_one_hot_vec()),
+
+            'camera_token': bytes_feature(self.camera_token.encode('utf8')),
+            'type_name': bytes_feature(self.object_name.encode('utf8'))
+        }
+
+        example = tf.train.Example(features=tf.train.Features(feature=feature_dict))
+        return example
 
 
 def parse_frustum_point_record(tfexample_message: str):
