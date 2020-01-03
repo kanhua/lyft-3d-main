@@ -457,7 +457,6 @@ class FrustumPoints2D(FrusutmPoints):
 
             'frustum_angle': float_feature(self.frustum_angle),
             'sample_token': bytes_feature(self.sample_token.encode('utf8')),
-            'type_name': bytes_feature(self.box_in_sensor_coord.name.encode('utf8')),
             'one_hot_vec': int64_list_feature(self._get_one_hot_vec()),
 
             'camera_token': bytes_feature(self.camera_token.encode('utf8')),
@@ -468,30 +467,54 @@ class FrustumPoints2D(FrusutmPoints):
         return example
 
 
+def parse_frustum_point_record_2d(tfexample_message: str):
+    NUM_CLASS = len(g_type_object_of_interest)
+    NUM_POINT = NUM_POINTS_OF_PC
+
+    keys_to_features = {
+        "frustum_point_cloud": tf.FixedLenFeature((NUM_POINT, NUM_CHANNELS_OF_PC), tf.float32),
+        "rot_frustum_point_cloud": tf.FixedLenFeature((NUM_POINT, NUM_CHANNELS_OF_PC), tf.float32),
+
+        "box_2d": tf.FixedLenFeature((4,), tf.float32),
+
+        "frustum_angle": tf.FixedLenFeature((), tf.float32),
+        "sample_token": tf.FixedLenFeature((), tf.string),
+
+        "one_hot_vec": tf.FixedLenFeature((NUM_CLASS,), tf.int64),
+        "camera_token": tf.FixedLenFeature((), tf.string),
+
+        "type_name": tf.FixedLenFeature((), tf.string)
+
+    }
+    parsed_example = tf.io.parse_single_example(tfexample_message, keys_to_features)
+
+    return parsed_example
+
+
 def parse_frustum_point_record(tfexample_message: str):
     NUM_CLASS = len(g_type_object_of_interest)
     NUM_POINT = NUM_POINTS_OF_PC
 
     keys_to_features = {
-        "box3d_size": tf.FixedLenFeature((3,), tf.float32),
-        "size_class": tf.FixedLenFeature((), tf.int64),
-        "size_residual": tf.FixedLenFeature((3,), tf.float32),
-        "seg_label": tf.FixedLenFeature((NUM_POINT,), tf.int64),
+        "box3d_size": tf.FixedLenFeature((3,), tf.float32, tf.zeros((3,), tf.float32)),
+        "size_class": tf.FixedLenFeature((), tf.int64, tf.zeros((), tf.int64)),
+        "size_residual": tf.FixedLenFeature((3,), tf.float32, tf.zeros((3,), tf.float32)),
+        "seg_label": tf.FixedLenFeature((NUM_POINT,), tf.int64, tf.zeros((NUM_POINT,), tf.int64)),
 
         "frustum_point_cloud": tf.FixedLenFeature((NUM_POINT, NUM_CHANNELS_OF_PC), tf.float32),
         "rot_frustum_point_cloud": tf.FixedLenFeature((NUM_POINT, NUM_CHANNELS_OF_PC), tf.float32),
 
-        "box_3d": tf.FixedLenFeature((8, 3), tf.float32),
-        "rot_box_3d": tf.FixedLenFeature((8, 3), tf.float32),
+        "box_3d": tf.FixedLenFeature((8, 3), tf.float32, tf.zeros((8, 3), tf.float32)),
+        "rot_box_3d": tf.FixedLenFeature((8, 3), tf.float32, tf.zeros((8, 3), tf.float32)),
         "box_2d": tf.FixedLenFeature((4,), tf.float32),
         "type_name": tf.FixedLenFeature((), tf.string),
 
-        "rot_heading_angle": tf.FixedLenFeature((), tf.float32),
-        "rot_angle_class": tf.FixedLenFeature((), tf.int64),
-        "rot_angle_residual": tf.FixedLenFeature((), tf.float32),
+        "rot_heading_angle": tf.FixedLenFeature((), tf.float32, tf.zeros((), tf.float32)),
+        "rot_angle_class": tf.FixedLenFeature((), tf.int64, tf.zeros((), tf.int64)),
+        "rot_angle_residual": tf.FixedLenFeature((), tf.float32, tf.zeros((), tf.float32)),
 
         "one_hot_vec": tf.FixedLenFeature((NUM_CLASS,), tf.int64),
-        "rot_box_center": tf.FixedLenFeature((3,), tf.float32),
+        "rot_box_center": tf.FixedLenFeature((3,), tf.float32, tf.zeros((3,), tf.float32)),
 
         "sample_token": tf.FixedLenFeature((), tf.string),
 
@@ -670,13 +693,15 @@ def get_all_boxes_in_single_scene(scene_number, from_rgb_detection, ldf: LyftDat
             logging.info("Processing {} token {}".format(scene_number, counter))
         counter += 1
         sample_record = ldf.get('sample', sample_token)
+        fg = FrustumGenerator(sample_token, ldf)
         if not from_rgb_detection:
-            fg = FrustumGenerator(sample_token, ldf)
             for fp in fg.generate_frustums():
                 yield fp
         else:
             # reserved for rgb detection data
-            pass
+            for fp in fg.generate_frustums_from_2d():
+                yield fp
+
 
         next_sample_token = sample_record['next']
         sample_token = next_sample_token
