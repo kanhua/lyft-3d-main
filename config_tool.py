@@ -39,11 +39,12 @@ def load_user_config_data():
 
     return config_data
 
-def set_paths(data_path,artifact_path,model_checkpoint,object_detection_model_path):
+def set_paths(data_path,test_data_path,artifact_path,model_checkpoint,object_detection_model_path):
     config_data=load_user_config_data()
     config_data['path_config']['model_checkpoint']=model_checkpoint
     config_data['path_config']['artifact_path']=artifact_path
     config_data['path_config']['data_path']=data_path
+    config_data['path_config']['test_data_path']=test_data_path
     config_data['path_config']['object_detection_model_path']=object_detection_model_path
 
     save_user_config(config_data)

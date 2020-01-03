@@ -32,6 +32,13 @@ class FrustumRGBTestCase(unittest.TestCase):
 
         #assert np.allclose(example_tensors['rot_box_3d'].numpy(), fp._get_rotated_box_3d())  # (8,3))
 
+    def test_one_scene(self):
+        print("writing one scene:")
+        with tf.io.TFRecordWriter("./unit_test_data/scene1_test.tfrec") as tfrw:
+            for fp in get_all_boxes_in_single_scene(0, False, level5data):
+                tfexample = fp.to_train_example()
+                tfrw.write(tfexample.SerializeToString())
+
 
 if __name__ == '__main__':
     unittest.main()

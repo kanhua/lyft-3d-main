@@ -16,7 +16,8 @@ import matplotlib.pyplot as plt
 
 
 def load_test_data():
-    DATA_PATH = '/Users/kanhua/Downloads/3d-object-detection-test'
+    from config_tool import get_paths
+    DATA_PATH, ARTIFACT_PATH, _ = get_paths()
     level5data_snapshot_file = "level5testdata.pickle"
 
     if os.path.exists(os.path.join(DATA_PATH, level5data_snapshot_file)):

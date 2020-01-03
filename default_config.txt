@@ -1,6 +1,7 @@
 [path_config]
 model_checkpoint=log_v1/model.ckpt
 data_path=/Users/kanhua/Downloads/3d-object-detection-for-autonomous-vehicles
+test_data_path=/Users/kanhua/Downloads/3d-object-detection-test
 artifact_path=/Users/kanhua/Downloads/3d-object-detection-for-autonomous-vehicles/artifacts
 object_detection_model_path=/Users/kanhua/Dropbox/Programming/lyft-3d-main/object_detecton_models/models/faster_rcnn_resnet101_kitti/exported_model/frozen_inference_graph.pb
 
