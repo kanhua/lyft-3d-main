@@ -39,7 +39,7 @@ class FrustumRGBTestCase(unittest.TestCase):
         example_proto_str = example.SerializeToString()
         example_tensors = parse_frustum_point_record(example_proto_str)
 
-        # assert np.allclose(example_tensors['frustum_point_cloud'].numpy(), fp.point_cloud_in_box)
+        self.assertTrue(np.allclose(example_tensors['frustum_point_cloud'].numpy(), fp.point_cloud_in_box))
 
         # assert np.allclose(example_tensors['rot_box_3d'].numpy(), fp._get_rotated_box_3d())  # (8,3))
 
@@ -49,7 +49,6 @@ class FrustumRGBTestCase(unittest.TestCase):
             for fp in get_all_boxes_in_single_scene(0, from_rgb_detection=True,
                                                     ldf=self.level5testdata,
                                                     object_classifier=self.object_classifier):
-                print("dd")
                 tfexample = fp.to_train_example()
                 tfrw.write(tfexample.SerializeToString())
 

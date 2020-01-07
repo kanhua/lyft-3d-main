@@ -278,7 +278,7 @@ class FrustumGenerator(object):
                 if point_clouds_in_box.shape[0] < 300:
                     continue
 
-                assert object_id==int(object_id)
+                assert object_id == int(object_id)
                 fp = FrustumPoints2D(lyftd=self.lyftd, point_cloud_in_box=point_clouds_in_box, box_2d_pts=box_2d_pts,
                                      frustum_angle=frustum_angle,
                                      sample_token=self.sample_record['token'],
@@ -445,8 +445,6 @@ class FrusutmPoints(object):
 class FrustumPoints2D(FrusutmPoints):
     def __init__(self, lyftd: LyftDataset, point_cloud_in_box,
                  box_2d_pts, frustum_angle, sample_token, camera_token, score, object_name):
-
-
         self.NUM_POINT = NUM_POINTS_OF_PC
         sel_index = np.random.choice(point_cloud_in_box.shape[0], self.NUM_POINT)
         self.point_cloud_in_box = point_cloud_in_box[sel_index, :]  # Nx3
@@ -696,7 +694,7 @@ def get_frustum_angle(lyftd: LyftDataset, cam_token, xmax, xmin, ymax, ymin):
     return frustum_angle
 
 
-def get_all_boxes_in_single_scene(scene_number, from_rgb_detection, ldf: LyftDataset,object_classifier=None):
+def get_all_boxes_in_single_scene(scene_number, from_rgb_detection, ldf: LyftDataset, object_classifier=None):
     start_sample_token = ldf.scene[scene_number]['first_sample_token']
     sample_token = start_sample_token
     counter = 0
@@ -713,7 +711,6 @@ def get_all_boxes_in_single_scene(scene_number, from_rgb_detection, ldf: LyftDat
             # reserved for rgb detection data
             for fp in fg.generate_frustums_from_2d(object_classifier):
                 yield fp
-
 
         next_sample_token = sample_record['next']
         sample_token = next_sample_token
