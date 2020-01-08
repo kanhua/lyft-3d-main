@@ -7,6 +7,7 @@ from absl import app
 
 from config_tool import get_paths
 import os
+import re
 
 flags.DEFINE_list("scenes", "", "scenes to be processed")
 flags.DEFINE_string("data_type", "train", "file type")
@@ -33,8 +34,12 @@ class SceneProcessor(object):
 
     def process_one_scene(self, scene_num):
         _, artifact_path, _ = get_paths()
+        if self.from_rgb_detection:
+            file_type="rgb"
+        else:
+            file_type="gt"
         with tf.io.TFRecordWriter(
-                os.path.join(artifact_path, "scene_{0}_{1}.tfrec".format(scene_num, self.data_type))) as tfrw:
+                os.path.join(artifact_path, "scene_{0}_{1}_{2}.tfrec".format(scene_num, self.data_type,file_type))) as tfrw:
             for fp in get_all_boxes_in_single_scene(scene_num, self.from_rgb_detection,
                                                     self.lyftd, object_classifier=self.object_classifier):
                 tfexample = fp.to_train_example()
@@ -42,13 +47,11 @@ class SceneProcessor(object):
 
 
 
-def list_all_files(data_dir=None):
+def list_all_files(data_dir=None,pat="scene_\d+_train.tfrec"):
     if data_dir is None:
         _, artifact_path, _ = get_paths()
         data_dir = artifact_path
 
-    pat = "scene_\d+_train.tfrec"
-    import re
     files = []
     for file in os.listdir(data_dir):
         match = re.match(pat, file)

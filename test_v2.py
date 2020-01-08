@@ -37,6 +37,7 @@ parser.add_argument('--idx_path', default=None,
 parser.add_argument('--dump_result', action='store_true', help='If true, also dump results to .pickle file')
 parser.add_argument('--no_intensity', action='store_true', help='Only use XYZ for training')
 parser.add_argument('--data_dir', default=None, help="overwritten data path for provider.FrustumData")
+parser.add_argument('--file_pattern',default="scene_\d+_train.tfrec",help="file patter (regular expression)")
 FLAGS = parser.parse_args()
 
 import model_util
