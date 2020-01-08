@@ -11,10 +11,9 @@ import re
 
 flags.DEFINE_list("scenes", "", "scenes to be processed")
 flags.DEFINE_string("data_type", "train", "file type")
-flags.DEFINE_bool("from_rgb", False, "whehter from RGB detection")
+flags.DEFINE_boolean("from_rgb", False, "whether from RGB detection")
 
 FLAGS = flags.FLAGS
-
 
 
 class SceneProcessor(object):
@@ -31,23 +30,25 @@ class SceneProcessor(object):
         if self.from_rgb_detection:
             from object_classifier import TLClassifier
             self.object_classifier = TLClassifier()
+        else:
+            self.object_classifier = None
 
     def process_one_scene(self, scene_num):
         _, artifact_path, _ = get_paths()
         if self.from_rgb_detection:
-            file_type="rgb"
+            file_type = "rgb"
         else:
-            file_type="gt"
+            file_type = "gt"
         with tf.io.TFRecordWriter(
-                os.path.join(artifact_path, "scene_{0}_{1}_{2}.tfrec".format(scene_num, self.data_type,file_type))) as tfrw:
+                os.path.join(artifact_path,
+                             "scene_{0}_{1}_{2}.tfrec".format(scene_num, self.data_type, file_type))) as tfrw:
             for fp in get_all_boxes_in_single_scene(scene_num, self.from_rgb_detection,
                                                     self.lyftd, object_classifier=self.object_classifier):
                 tfexample = fp.to_train_example()
                 tfrw.write(tfexample.SerializeToString())
 
 
-
-def list_all_files(data_dir=None,pat="scene_\d+_train.tfrec"):
+def list_all_files(data_dir=None, pat="scene_\d+_train.tfrec"):
     if data_dir is None:
         _, artifact_path, _ = get_paths()
         data_dir = artifact_path
@@ -72,16 +73,14 @@ def main(argv):
     else:
         scenes_to_process = map(int, FLAGS.scenes)
 
-    if FLAGS.from_rgb: # it seems that object detector does not support parallel processes
+    if FLAGS.from_rgb:  # it seems that object detector does not support parallel processes
         for s in scenes_to_process:
             # map(sp.process_one_scene, scenes_to_process)
             sp.process_one_scene(s)
     else:
         logging.info("parallel processing GT data:")
         with Pool(processes=7) as p:
-            p.map(lambda sp: sp.process_one_scene, scenes_to_process)
-
-
+            p.map(sp.process_one_scene, scenes_to_process)
 
 
 if __name__ == "__main__":
