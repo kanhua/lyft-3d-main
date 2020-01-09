@@ -37,7 +37,7 @@ parser.add_argument('--idx_path', default=None,
 parser.add_argument('--dump_result', action='store_true', help='If true, also dump results to .pickle file')
 parser.add_argument('--no_intensity', action='store_true', help='Only use XYZ for training')
 parser.add_argument('--data_dir', default=None, help="overwritten data path for provider.FrustumData")
-parser.add_argument('--file_pattern',default="scene_\d+_train.tfrec",help="file patter (regular expression)")
+parser.add_argument('--file_pattern', default="scene_\d_xxx.tfrec", help="file patter (regular expression)")
 FLAGS = parser.parse_args()
 
 import model_util
@@ -62,7 +62,7 @@ def get_session_and_ops():
     '''
     with tf.Graph().as_default():
         with tf.device('/gpu:' + str(GPU_INDEX)):
-            filenames = list_all_files(FLAGS.data_dir)
+            filenames = list_all_files(FLAGS.data_dir, pat=FLAGS.file_pattern)
             print(filenames)
             full_dataset = tf.data.TFRecordDataset(filenames)
             parsed_dataset = full_dataset.map(parse_inference_data)

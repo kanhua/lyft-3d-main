@@ -13,10 +13,10 @@ from PIL import Image
 from lyft_dataset_sdk.lyftdataset import LyftDataset, LyftDatasetExplorer
 
 import matplotlib.pyplot as plt
+from config_tool import get_test_data_path
 
 
 def load_test_data():
-    from config_tool import get_test_data_path
     DATA_PATH = get_test_data_path()
     level5data_snapshot_file = "level5testdata.pickle"
 

@@ -9,6 +9,7 @@ from parse_pointnet_output import read_frustum_pointnet_output_v2
 from prepare_lyft_data import load_train_data
 from lyft_dataset_sdk.eval.detection.mAP_evaluation import Box3D, get_ious
 from lyft_dataset_sdk.utils.data_classes import Box
+from test_data_loader import load_test_data
 from typing import List
 from absl import flags, app
 import pandas as pd
@@ -112,8 +113,7 @@ def main(argv):
     if data_name == 'train':
         data = load_train_data()
     elif data_name == 'test':
-        from test_data_loader import level5testdata
-        data = level5testdata
+        data = load_test_data()
 
     pred_boxes=[]
     sample_token_list=[]
