@@ -73,7 +73,7 @@ def get_session_and_ops():
             pointclouds_pl, one_hot_vec_pl, labels_pl, centers_pl, \
             heading_class_label_pl, heading_residual_label_pl, \
             size_class_label_pl, size_residual_label_pl, \
-            sample_token_tensor, camera_token_tensor, frustum_angle_tensor = \
+            sample_token_tensor, camera_token_tensor, frustum_angle_tensor,type_name_tensor = \
                 iterator.get_next()
 
             tf.ensure_shape(pointclouds_pl, (BATCH_SIZE, NUM_POINT, NUM_CHANNEL))
@@ -109,7 +109,8 @@ def get_session_and_ops():
                'loss': loss,
                'camera_token': camera_token_tensor,
                'sample_token': sample_token_tensor,
-               'frustum_angle': frustum_angle_tensor}
+               'frustum_angle': frustum_angle_tensor,
+               'type_name': type_name_tensor}
         return sess, ops
 
 
@@ -134,13 +135,13 @@ def inference_new(sess, ops):
                 batch_heading_scores, batch_heading_residuals, \
                 batch_size_scores, batch_size_residuals, \
                 camera_token_bytes_string, sample_token_bytes_string, \
-                point_clouds, seg_labels, frustum_angle = \
+                point_clouds, seg_labels, frustum_angle, type_name_bytes_string = \
                     sess.run([ops['logits'], ops['center'],
                               ep['heading_scores'], ep['heading_residuals'],
                               ep['size_scores'], ep['size_residuals'],
                               ops['camera_token'], ops['sample_token'],
                               ops['pointclouds_pl'], ops['labels_pl'],
-                              ops['frustum_angle']],
+                              ops['frustum_angle'],ops['type_name']],
                              feed_dict=feed_dict)
 
                 # Compute scores
@@ -175,7 +176,8 @@ def inference_new(sess, ops):
                                                                   camera_token=camera_token_bytes_string[
                                                                       batch_index].decode('utf8'),
                                                                   sample_token=sample_token_bytes_string[
-                                                                      batch_index].decode('utf8'))
+                                                                      batch_index].decode('utf8'),
+                                                                  type_name=type_name_bytes_string[batch_index].decode('utf8'))
 
                     tfrw.write(example_msg.SerializeToString())
 

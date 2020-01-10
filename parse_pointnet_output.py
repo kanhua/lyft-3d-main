@@ -43,7 +43,8 @@ def read_frustum_pointnet_output_v2(ldt: LyftDataset, inference_tfrecord_file):
                                               size_res=example['size_residual'].numpy(),
                                               center_coord=example['rot_box_center'].numpy(),
                                               sample_data_token=example['camera_token'].numpy().decode('utf8'),
-                                              score=example['score'].numpy())
+                                              score=example['score'].numpy(),
+                                              type_name=example['type_name'].numpy().decode('utf8'))
 
         pc_record = ldt.get("sample_data", example['camera_token'].numpy().decode('utf8'))
         sample_of_pc_record = ldt.get("sample", pc_record['sample_token'])
@@ -138,7 +139,7 @@ def get_center_in_world_coord(center_in_sensor_coord, sample_data_token: str):
 
 
 def get_box_from_inference(lyftd: LyftDataset, heading_cls, heading_res, rot_angle,
-                           size_cls, size_res, center_coord, sample_data_token, score) -> Box:
+                           size_cls, size_res, center_coord, sample_data_token, score,type_name:str) -> Box:
     heading_angle = get_heading_angle(heading_cls, heading_res, rot_angle)
     size = get_size(size_cls, size_res)
     rot_angle += np.pi / 2
@@ -154,7 +155,7 @@ def get_box_from_inference(lyftd: LyftDataset, heading_cls, heading_res, rot_ang
     first_rot = Quaternion(axis=[1, 0, 0], angle=np.pi / 2)
     second_rot = Quaternion(axis=[0, -1, 0], angle=-heading_angle)
     box_in_sensor_coord = Box(center=center_sensor_coord, size=[w, l, h],
-                              orientation=second_rot * first_rot, score=score)
+                              orientation=second_rot * first_rot, score=score,name=type_name)
 
     box_in_world_coord = convert_box_to_world_coord_with_sample_data_token(box_in_sensor_coord, sample_data_token,
                                                                            lyftd)

@@ -730,6 +730,7 @@ def parse_inference_data(raw_record):
     camera_token = example['camera_token']
     sample_token = example['sample_token']
     frustum_angle = example['frustum_angle']
+    type_name=example['type_name']
 
     return rot_frustum_point_cloud, \
            one_hot_vec, \
@@ -738,7 +739,7 @@ def parse_inference_data(raw_record):
            rot_angle_class, \
            rot_angle_residual, \
            size_class, \
-           size_residual, sample_token, camera_token, frustum_angle
+           size_residual, sample_token, camera_token, frustum_angle, type_name
 
 
 def parse_data(raw_record):
@@ -755,7 +756,7 @@ def parse_data(raw_record):
 
 def get_inference_results_tfexample(point_cloud, seg_label, seg_label_logits, box_center, heading_angle_class,
                                     heading_angle_residual, size_class, size_residual, frustum_angle, score,
-                                    camera_token: str, sample_token: str):
+                                    camera_token: str, sample_token: str,type_name:str):
     feature_dict = {
         # 'box3d_size': float_list_feature(self._get_wlh()),  # (3,)
         'size_class': int64_feature(size_class),
@@ -780,7 +781,7 @@ def get_inference_results_tfexample(point_cloud, seg_label, seg_label_logits, bo
 
         'frustum_angle': float_feature(frustum_angle),
         'sample_token': bytes_feature(sample_token.encode('utf8')),
-        # 'type_name': bytes_feature(self.box_in_sensor_coord.name.encode('utf8')),
+        'type_name': bytes_feature(type_name.encode('utf8')),
         # 'one_hot_vec': int64_list_feature(self._get_one_hot_vec()),
 
         'camera_token': bytes_feature(camera_token.encode('utf8')),
