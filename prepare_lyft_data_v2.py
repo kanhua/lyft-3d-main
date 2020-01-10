@@ -814,7 +814,7 @@ def parse_inference_record(tfexample_message: str):
         # "box_3d": tf.FixedLenFeature((8, 3), tf.float32),
         # "rot_box_3d": tf.FixedLenFeature((8, 3), tf.float32),
         # "box_2d": tf.FixedLenFeature((4,), tf.float32),
-        # "type_name": tf.FixedLenFeature((), tf.string),
+        "type_name": tf.FixedLenFeature((), tf.string),
 
         "rot_heading_angle_class": tf.FixedLenFeature((), tf.int64),
         "rot_heading_angle_residual": tf.FixedLenFeature((), tf.float32),
