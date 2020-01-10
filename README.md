@@ -1,5 +1,13 @@
 ## Main workflow of training and testing
 
+### Setting the path configuration
+
+```bash
+python setup_path.py --model_checkpoint /path/to/model/checkpt --data_path /path/to/data --artifact_path /path/to/artifact --object_detection_model_path /object/detection/model/path
+```
+artifact path are the paths that store user-generated data.
+
+
 ### Training the point clouds by frustum pointnetV1
 
 - Prepare the frustum pointnet data of selected scenes in Lyft train data:
