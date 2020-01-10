@@ -1,1 +1,1 @@
-python run_prepare_lyft_data.py --scenes 0,1,2,3 --data_type test --from_rgb
+python run_prepare_lyft_data.py --scenes 0,1 --data_type test --from_rgb

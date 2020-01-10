@@ -2,11 +2,12 @@ import tensorflow as tf
 
 tf.compat.v1.enable_eager_execution()
 from prepare_lyft_data_v2 import FrustumGenerator, get_all_boxes_in_single_scene, \
-    parse_frustum_point_record,load_train_data
+    parse_frustum_point_record, load_train_data
 import matplotlib.pyplot as plt
 import numpy as np
 
-level5data=load_train_data()
+level5data = load_train_data()
+
 
 def test_one_sample_token():
     test_sample_token = level5data.sample[0]['token']
@@ -20,12 +21,11 @@ def test_one_sample_token():
     example = fp.to_train_example()
     example_proto_str = example.SerializeToString()
 
-    example_tensors=parse_frustum_point_record(example_proto_str)
+    example_tensors = parse_frustum_point_record(example_proto_str)
 
     assert np.allclose(example_tensors['frustum_point_cloud'].numpy(), fp.point_cloud_in_box)
 
-    assert np.allclose(example_tensors['rot_box_3d'].numpy(),fp._get_rotated_box_3d())  # (8,3))
-
+    assert np.allclose(example_tensors['rot_box_3d'].numpy(), fp._get_rotated_box_3d())  # (8,3))
 
 
 def test_write_tfrecord():
@@ -108,7 +108,10 @@ def test_tfdataset():
     for batched_data in parsed_dataset.batch(3):
         print(batched_data)
 
+
 from prepare_lyft_data_v2 import parse_inference_data
+
+
 def test_parse_inference_data():
     filenames = ['./unit_test_data/test.tfrec']
     full_dataset = tf.data.TFRecordDataset(filenames)
@@ -118,14 +121,13 @@ def test_parse_inference_data():
         print(batched_data)
 
 
-
-#test_one_sample_token()
-#test_plot_one_frustum()
+# test_one_sample_token()
+# test_plot_one_frustum()
 test_write_tfrecord()
-#test_one_scene()
+# test_one_scene()
 
 test_load_example()
 
-#test_tfdataset()
+# test_tfdataset()
 
-#test_parse_inference_data()
+# test_parse_inference_data()
