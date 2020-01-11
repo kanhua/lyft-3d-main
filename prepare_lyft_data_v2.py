@@ -142,6 +142,8 @@ class FrustumGenerator(object):
         self.camera_keys = self._get_camera_keys()
         self.point_cloud_in_sensor_coord, self.ref_lidar_token = self._read_pointcloud(use_multisweep=True)
 
+        self.point_cloud_in_camera_coords = {}  # camkey: pointcloud
+
     def _get_camera_keys(self):
         cams = [key for key in self.sample_record["data"].keys() if "CAM" in key]
         cams = [cam for cam in cams if cam in self.camera_type]
@@ -179,9 +181,14 @@ class FrustumGenerator(object):
                                                                              selected_anntokens=None)
             img = Image.open(image_path)
 
-            _, point_cloud_in_camera_coord_2d = transform_pc_to_camera_coord(camera_data,
-                                                                             self.lyftd.get('sample_data', lidar_token),
-                                                                             point_cloud, self.lyftd)
+            point_cloud_in_camera_coord_3d, point_cloud_in_camera_coord_2d = transform_pc_to_camera_coord(camera_data,
+                                                                                                          self.lyftd.get(
+                                                                                                              'sample_data',
+                                                                                                              lidar_token),
+                                                                                                          point_cloud,
+                                                                                                          self.lyftd)
+
+            self.point_cloud_in_camera_coords[camera_token] = point_cloud_in_camera_coord_3d
 
             for box_in_sensor_coord in box_list:
 
@@ -420,18 +427,23 @@ class FrusutmPoints(object):
     def render_boxes_on_image(self, ax):
         self.box_in_sensor_coord.render(ax, view=self.camera_intrinsic, normalize=True)
 
-    def render_point_cloud_top_view(self, ax, view_matrix=np.array([[1, 0, 0], [0, 0, 1], [0, 0, 0]])):
+    def render_point_cloud_top_view(self, ax, view_matrix=np.array([[1, 0, 0], [0, 0, 1], [0, 0, 0]]),
+                                    show_angle_text=False):
         # self.box_in_sensor_coord.render(ax, view=view_matrix, normalize=False)
         projected_pts = view_points(np.transpose(self.point_cloud_in_box), view=view_matrix, normalize=False)
         ax.scatter(projected_pts[0, :], projected_pts[1, :], s=0.1)
         if projected_pts.shape[1] > 0:
-            ax.text(np.mean(projected_pts[0, :]), np.mean(projected_pts[1, :]),
-                    "{:.2f}".format(self.frustum_angle * 180 / np.pi))
+            if show_angle_text:
+                ax.text(np.mean(projected_pts[0, :]), np.mean(projected_pts[1, :]),
+                        "{:.2f}".format(self.frustum_angle * 180 / np.pi))
 
     def render_image(self, ax):
         image_path = self.lyftd.get_sample_data_path(self.camera_token)
-        import skimage
-        image_array = skimage.io.imread(image_path)
+
+        image_array = imread(image_path)
+
+        channel = self.lyftd.get("sample_data", self.camera_token)['channel']
+        ax.set_title(channel)
         ax.imshow(image_array)
 
     def render_rotated_point_cloud_top_view(self, ax,
@@ -730,7 +742,7 @@ def parse_inference_data(raw_record):
     camera_token = example['camera_token']
     sample_token = example['sample_token']
     frustum_angle = example['frustum_angle']
-    type_name=example['type_name']
+    type_name = example['type_name']
 
     return rot_frustum_point_cloud, \
            one_hot_vec, \
@@ -756,7 +768,7 @@ def parse_data(raw_record):
 
 def get_inference_results_tfexample(point_cloud, seg_label, seg_label_logits, box_center, heading_angle_class,
                                     heading_angle_residual, size_class, size_residual, frustum_angle, score,
-                                    camera_token: str, sample_token: str,type_name:str):
+                                    camera_token: str, sample_token: str, type_name: str):
     feature_dict = {
         # 'box3d_size': float_list_feature(self._get_wlh()),  # (3,)
         'size_class': int64_feature(size_class),

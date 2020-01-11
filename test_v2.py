@@ -154,6 +154,7 @@ def inference_new(sess, ops):
 
                 # batch_size score includes the score of segmentation mask accuracy, heading, and size
                 batch_scores = np.log(mask_mean_prob) + np.log(heading_prob) + np.log(size_prob)
+                batch_prob=(mask_mean_prob+heading_prob+size_prob)/3
 
                 heading_cls = np.argmax(softmax(batch_heading_scores), 1)  # B
                 size_cls = np.argmax(softmax(batch_size_scores), 1)  # B
@@ -172,7 +173,7 @@ def inference_new(sess, ops):
                                                                   size_class=size_cls[batch_index, ...],
                                                                   size_residual=size_res,
                                                                   frustum_angle=frustum_angle[batch_index, ...],
-                                                                  score=batch_scores[batch_index, ...],
+                                                                  score=batch_prob[batch_index, ...],
                                                                   camera_token=camera_token_bytes_string[
                                                                       batch_index].decode('utf8'),
                                                                   sample_token=sample_token_bytes_string[
