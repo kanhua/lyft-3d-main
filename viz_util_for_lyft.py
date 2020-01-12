@@ -8,11 +8,126 @@ Ref: https://github.com/hengck23/didi-udacity-2017/blob/master/baseline-04/kitti
 
 import numpy as np
 import mayavi.mlab as mlab
+import pandas as pd
+from prepare_lyft_data import parse_string_to_box, transform_box_from_world_to_sensor_coordinates, \
+    get_sensor_to_world_transform_matrix_from_sample_data_token
+from prepare_lyft_data_v2 import transform_pc_to_camera_coord
+from lyft_dataset_sdk.lyftdataset import LyftDataset
+from lyft_dataset_sdk.utils.data_classes import LidarPointCloud
+from skimage.io import imread
+import matplotlib.pyplot as plt
 
-try:
-    raw_input  # Python 2
-except NameError:
-    raw_input = input  # Python 3
+
+class PredViewer(object):
+
+    def __init__(self, pred_file, lyftd: LyftDataset):
+        self.pred_pd = pd.read_csv(pred_file, index_col="Id")
+        self.lyftd = lyftd
+
+    def get_boxes_from_token(self, sample_token):
+        boxes_str = self.pred_pd.loc[sample_token, 'PredictionString']
+        boxes = parse_string_to_box(boxes_str)
+        return boxes
+
+    def get_sample_record_from_token(self, sample_token):
+        pass
+
+    def render_camera_image(self, ax, sample_token, cam_key='CAM_FRONT', prob_threshold=0.1):
+        sample_record = self.lyftd.get('sample', sample_token)
+        camera_token = sample_record['data'][cam_key]
+        camera_image_path, _, cam_intrinsic = self.lyftd.get_sample_data(camera_token)
+
+        boxes = self.get_boxes_from_token(sample_token)
+
+        image_array = imread(camera_image_path)
+
+        ax.imshow(image_array)
+        for pred_box in boxes:
+            if pred_box.score > prob_threshold:
+                box_in_camera_coord = transform_box_from_world_to_sensor_coordinates(pred_box, camera_token, self.lyftd)
+                if box_in_camera_coord.center[2] > 0:
+                    box_in_camera_coord.render(ax, view=cam_intrinsic, normalize=True)
+
+        ax.set_xlim([0, image_array.shape[1]])
+        ax.set_ylim([image_array.shape[0], 0])
+
+    def render_lidar_points(self, ax, sample_token, lidar_key='LIDAR_TOP', prob_threshold=0):
+
+        lidar_top_token, lpc = self.get_lidar_points(lidar_key, sample_token)
+
+        boxes = self.get_boxes_from_token(sample_token)
+
+        for pred_box in boxes:
+            if pred_box.score > prob_threshold:
+                box_in_lidar_coord = transform_box_from_world_to_sensor_coordinates(pred_box, lidar_top_token,
+                                                                                    self.lyftd)
+
+                pts = lpc.points
+                ax.scatter(pts[0, :], pts[1, :], s=0.05)
+                ax.set_xlim([-50, 50])
+                ax.set_ylim([-50, 50])
+                view_mtx = np.eye(2)
+                box_in_lidar_coord.render(ax, view=view_mtx)
+
+    def get_lidar_points(self, lidar_key, sample_token):
+        sample_record = self.lyftd.get('sample', sample_token)
+        lidar_top_token = sample_record['data'][lidar_key]
+        lidar_path = self.lyftd.get_sample_data_path(lidar_top_token)
+        lpc = LidarPointCloud.from_file(lidar_path)
+        return lidar_top_token, lpc
+
+    def render_3d_lidar_points(self, sample_token, lidar_key='LIDAR_TOP', prob_threshold=0):
+
+        lidar_token, lpc = self.get_lidar_points(lidar_key=lidar_key, sample_token=sample_token)
+
+        fig = draw_lidar_simple(np.transpose(lpc.points))
+
+        boxes = self.get_boxes_from_token(sample_token)
+
+        box_pts = []
+        for pred_box in boxes:
+            if pred_box.score > prob_threshold:
+                box_in_lidar_coord = transform_box_from_world_to_sensor_coordinates(pred_box, lidar_token,
+                                                                                    self.lyftd)
+                box_3d_pts = np.transpose(box_in_lidar_coord.corners())
+
+                box_pts.append(box_3d_pts)
+
+        draw_gt_boxes3d(box_pts, fig)
+
+    def render_3d_lidar_points_to_camera_coordinates(self, sample_token, lidar_key="LIDAR_TOP",
+                                                     cam_key="CAM_FRONT", prob_threshold=0):
+
+        lidar_token, lpc = self.get_lidar_points(lidar_key=lidar_key, sample_token=sample_token)
+
+        # Get camera coordiate calibration information
+        sample_record = self.lyftd.get('sample', sample_token)
+        camera_token = sample_record['data'][cam_key]
+
+        camera_data = self.lyftd.get('sample_data', camera_token)
+        lidar_record = self.lyftd.get('sample_data', lidar_token)
+
+        lpc, _ = transform_pc_to_camera_coord(camera_data, lidar_record, lpc, self.lyftd)
+        # Transform lidar points
+
+        fig = draw_lidar_simple(np.transpose(lpc.points))
+
+        boxes = self.get_boxes_from_token(sample_token)
+
+        box_pts = []
+        for pred_box in boxes:
+            if pred_box.score > prob_threshold:
+                box_in_lidar_coord = transform_box_from_world_to_sensor_coordinates(pred_box, camera_token,
+                                                                                    self.lyftd)
+                box_3d_pts = np.transpose(box_in_lidar_coord.corners())
+
+                box_pts.append(box_3d_pts)
+
+        draw_gt_boxes3d(box_pts, fig)
+
+        mlab.view(azimuth=270, elevation=150,
+                  focalpoint=[0, 0, 0], distance=62.0, figure=fig)
+        return fig
 
 
 def draw_lidar_simple(pc, color=None):
@@ -147,4 +262,4 @@ if __name__ == '__main__':
     # point_cloud_3d = np.loadtxt('mayavi/kitti_sample_scan.txt')
     fig = draw_lidar_simple(item['pcl'][3])
     mlab.savefig('pc_view.jpg', figure=fig)
-    raw_input()
+    input()
