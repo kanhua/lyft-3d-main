@@ -32,7 +32,7 @@ def test_3d_lidar_points_in_camera_coords():
 if __name__ == "__main__":
     # test_one_sample_token()
     # test_3d_lidar_points()
-    fig=test_3d_lidar_points_in_camera_coords()
+    test_3d_lidar_points_in_camera_coords()
     import mayavi.mlab as mlab
     mlab.savefig("./artifact/test_mlab_3d.png")
 
