@@ -6,7 +6,7 @@ from prepare_lyft_data import level5data
 import matplotlib.pyplot as plt
 import numpy as np
 
-from viz_util_for_lyft import draw_lidar_simple,draw_gt_boxes3d
+from viz_util_for_lyft import draw_lidar_simple, draw_gt_boxes3d
 
 
 def test_plot_one_frustum():
@@ -21,8 +21,8 @@ def test_plot_one_frustum():
 
     pc = fp.point_cloud_in_box
 
-    fig=draw_lidar_simple(pc,color=fp.seg_label.astype(np.int)*255)
-    draw_gt_boxes3d([fp.box_3d_pts],fig)
+    fig = draw_lidar_simple(pc, color=fp.seg_label.astype(np.int) * 255)
+    draw_gt_boxes3d([fp.box_3d_pts], fig)
 
 
 if __name__ == "__main__":

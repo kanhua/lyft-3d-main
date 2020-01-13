@@ -421,7 +421,7 @@ class FrusutmPoints(object):
     def render_point_cloud_on_image(self, ax):
         projected_pts = view_points(np.transpose(self.point_cloud_in_box),
                                     view=self.camera_intrinsic, normalize=True)
-        ax.scatter(projected_pts[0, :], projected_pts[1, :], s=0.1, alpha=0.1)
+        ax.scatter(projected_pts[0, :], projected_pts[1, :], s=0.1, alpha=0.4)
         # self.lyftd.render_pointcloud_in_image()
 
     def render_boxes_on_image(self, ax):
