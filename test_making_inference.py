@@ -13,6 +13,7 @@ from test_data_loader import load_test_data
 from typing import List
 from absl import flags, app
 import pandas as pd
+import math
 
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("from_rgb_detection", False, "whether the frustum is generated from RGB detection")
@@ -83,6 +84,8 @@ def write_output_csv(pred_boxes: List[Box], sample_token_list, output_csv_file: 
         for idx, sample_token in enumerate(sample_token_list):
             # x, y, z, w, l, h, yaw, c
             score = pred_boxes[idx].score
+            if math.isnan(score):
+                continue
             x, y, z = pred_boxes[idx].center
             w, l, h = pred_boxes[idx].wlh
             yaw = pred_boxes[idx].orientation.angle * np.sign(pred_boxes[idx].orientation.axis[2])
