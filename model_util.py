@@ -23,6 +23,18 @@ NUM_OBJECT_POINT = 512
 # g_type2onehotclass = {'car': 0, 'pedestrian': 1, 'bicycle': 2}  # add this line for compatibiltiy to Lyft data
 g_type2onehotclass = {'animal': 0, 'bicycle': 1, 'bus': 2, 'car': 3, 'emergency_vehicle': 4, 'motorcycle': 5,
                       'other_vehicle': 6, 'pedestrian': 7, 'truck': 8}
+# a patch to map the id defined in lyft_object_map.pbtxt to g_type2onehotclass
+map_2d_detector = {
+    1: 3,  # car
+    2: 7,  # pedestrian
+    3: 0,  # animal
+    4: 6,  # other_vehicle
+    5: 2,  # bus
+    6: 5,  # motorcycle
+    7: 8,  # truck
+    8: 4,  # emergency_vehicle
+    9: 1,  # bicycle
+}
 g_type2class = g_type2onehotclass
 g_class2type = {g_type2class[t]: t for t in g_type2class.keys()}
 g_type_object_of_interest = ['animal', 'bicycle', 'bus', 'car', 'emergency_vehicle', 'motorcycle',

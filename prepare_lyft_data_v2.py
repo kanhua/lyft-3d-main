@@ -257,10 +257,15 @@ class FrustumGenerator(object):
                                                                              point_cloud, self.lyftd)
             image_array = imread(image_path)
 
-            all_sel_boxes = object_classifier.detect_multi_object(image_array)
-
+            all_sel_boxes = object_classifier.detect_multi_object(image_array, output_target_class=True,
+                                                                  score_threshold=[0.4 for i in range(9)],
+                                                                  rearrange_to_pointnet_convention=True,
+                                                                  target_classes=[i for i in range(1, 10, 1)])
+            from model_util import map_2d_detector
             for idx in range(all_sel_boxes.shape[0]):
-                xmin, xmax, ymin, ymax, score, object_id = all_sel_boxes[idx, :]
+                xmin, xmax, ymin, ymax, score, raw_object_id = all_sel_boxes[idx, :]
+
+                object_id = map_2d_detector[raw_object_id]
 
                 mask = mask_points(point_cloud_in_camera_coord_2d, 0, image_array.shape[1], ymin=0,
                                    ymax=image_array.shape[0])
@@ -291,7 +296,7 @@ class FrustumGenerator(object):
                                      sample_token=self.sample_record['token'],
                                      camera_token=camera_token,
                                      score=score,
-                                     object_name=self.object_of_interest_name[int(object_id) - 1])
+                                     object_name=self.object_of_interest_name[int(object_id)])
 
                 yield fp
 

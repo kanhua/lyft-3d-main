@@ -142,8 +142,8 @@ class TLClassifier(object):
         return sel_box
 
     def detect_multi_object(self, image_np, score_threshold=[0.8, 0.8, 0.8],
-                            #target_classes=[3, 1, 2], coco dataset id
-                            target_classes=[1,2,9], # my own model
+                            # target_classes=[3, 1, 2], coco dataset id
+                            target_classes=[1, 2, 9],  # my own model
                             rearrange_to_pointnet_convention=True,
                             output_target_class=False):
         """
@@ -165,6 +165,11 @@ class TLClassifier(object):
         (boxes, scores, classes, num) = self.sess.run(
             [self.detection_boxes, self.detection_scores, self.detection_classes, self.num_detections],
             feed_dict={self.image_tensor: image_np_expanded})
+
+#        print("boxes:", boxes)
+#        print("scores", scores)
+#        print("classes", classes)
+#        print("number of detections", num)
 
         all_sel_boxes = None
         sq_boxes = np.squeeze(boxes)
