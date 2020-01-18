@@ -100,3 +100,5 @@ Visualize predicted results in 3D: [pred_viewer_test.py](pred_viewer_test.py)
 
 Plot frustum in 3D: [plot_v2_data.py](plot_v2_data.py)
 
+Test plot frustums and rotated frustums point cloud points: ```prepare_lyft_data_v2_test.test_plot_one_frustum```
+

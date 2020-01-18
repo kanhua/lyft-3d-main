@@ -1,12 +1,14 @@
 from detect_traffic_light import detect_object_single, \
-    load_graph, classify_color_in_cartoon_image, classify_color_cropped_image
-from vis_util import draw_result_on_image
+    load_graph, classify_color_cropped_image
+from vis_util import draw_bounding_boxes_on_image_array
 import tensorflow as tf
 import numpy as np
 import random
 import string
 import os
 from skimage.io import imsave
+
+from model_util import g_type_object_of_interest, map_2d_detector
 
 
 def record_image(cv_image, ref_state, save_path):
@@ -166,10 +168,10 @@ class TLClassifier(object):
             [self.detection_boxes, self.detection_scores, self.detection_classes, self.num_detections],
             feed_dict={self.image_tensor: image_np_expanded})
 
-#        print("boxes:", boxes)
-#        print("scores", scores)
-#        print("classes", classes)
-#        print("number of detections", num)
+        #        print("boxes:", boxes)
+        #        print("scores", scores)
+        #        print("classes", classes)
+        #        print("number of detections", num)
 
         all_sel_boxes = None
         sq_boxes = np.squeeze(boxes)
@@ -215,10 +217,10 @@ class TLClassifier(object):
 
         return self.classified_index
 
-    def draw_result(self, image):
+    def draw_result(self, image_array, nboxes):
 
-        image_np = np.copy(image)
+        image_to_be_drawn = np.copy(image_array)
+        strings = [[g_type_object_of_interest[map_2d_detector[int(nboxes[i, 5])]]] for i in range(nboxes.shape[0])]
+        draw_bounding_boxes_on_image_array(image_to_be_drawn, nboxes[:, 0:4], display_str_list_list=strings)
 
-        draw_result_on_image(image_np, self.traffic_light_box, self.classified_index)
-
-        return image_np
+        return image_to_be_drawn

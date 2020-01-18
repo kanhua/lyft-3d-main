@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from test_data_loader import load_test_data
 from object_classifier import TLClassifier
+from skimage.io import imread
 
 
 class FrustumRGBTestCase(unittest.TestCase):
@@ -51,6 +52,44 @@ class FrustumRGBTestCase(unittest.TestCase):
                                                     object_classifier=self.object_classifier):
                 tfexample = fp.to_train_example()
                 tfrw.write(tfexample.SerializeToString())
+
+    def test_plot_frustums(self):
+        test_sample_token = self.level5testdata.sample[0]['token']
+
+        print(test_sample_token)
+
+        fg = FrustumGenerator(sample_token=test_sample_token, lyftd=self.level5testdata)
+
+        ax_dict = {}
+        for fp in fg.generate_frustums_from_2d(self.object_classifier):
+            if fp.camera_token not in ax_dict.keys():
+                fig, ax = plt.subplots(nrows=1, ncols=4, figsize=(28, 7))
+                ax_dict[fp.camera_token] = (fig, ax)
+                fp.render_image(ax[0])
+
+                image_path = self.level5testdata.get_sample_data_path(fp.camera_token)
+
+                image_array = imread(image_path)
+                nboxes = self.object_classifier.detect_multi_object(image_array, output_target_class=True,
+                                                                    rearrange_to_pointnet_convention=False,
+                                                                    score_threshold=[0.4 for i in range(9)],
+                                                                    target_classes=[i for i in range(1, 10, 1)])
+                n_image_array = self.object_classifier.draw_result(image_array, nboxes)
+                ax[3].imshow(n_image_array)
+
+            else:
+                ax = ax_dict[fp.camera_token][1]
+
+            fp.render_point_cloud_on_image(ax[0])
+
+            fp.render_point_cloud_top_view(ax[1])
+
+            fp.render_rotated_point_cloud_top_view(ax[2])
+
+        for key in ax_dict.keys():
+            fig, ax = ax_dict[key]
+            channel = self.level5testdata.get("sample_data", key)['channel']
+            fig.savefig("./artifact/{}_from_rgb.png".format(channel),dpi=450)
 
 
 if __name__ == '__main__':

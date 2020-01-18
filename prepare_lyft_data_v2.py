@@ -474,6 +474,8 @@ class FrustumPoints2D(FrusutmPoints):
         self.score = score
         self.object_name = object_name
 
+        self.camera_intrinsic = self._get_camera_intrinsic()
+
     def to_train_example(self) -> tf.train.Example:
         feature_dict = {
 
@@ -492,6 +494,18 @@ class FrustumPoints2D(FrusutmPoints):
 
         example = tf.train.Example(features=tf.train.Features(feature=feature_dict))
         return example
+
+    def render_image(self, ax):
+
+        image_path = self.lyftd.get_sample_data_path(self.camera_token)
+
+        image_array = imread(image_path)
+
+        channel = self.lyftd.get("sample_data", self.camera_token)['channel']
+        ax.set_title(channel)
+        ax.imshow(image_array)
+
+
 
 
 def parse_frustum_point_record_2d(tfexample_message: str):
