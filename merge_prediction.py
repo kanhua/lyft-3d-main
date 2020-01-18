@@ -24,9 +24,9 @@ merged_df = merged_df.iloc[:, [0, 2]]
 
 print(merged_df.head())
 
-merged_df=merged_df.rename(columns={'PredictionString_y': 'PredictionString'})
+merged_df = merged_df.rename(columns={'PredictionString_y': 'PredictionString'})
 
-merged_df.to_csv("predicction.csv", index=False)
+merged_df.to_csv("prediction.csv", index=False)
 
 print(merged_df.head())
 

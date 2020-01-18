@@ -2,9 +2,11 @@ from object_classifier import TLClassifier
 from vis_util import draw_bounding_boxes_on_image_array, draw_bounding_box_on_image_array
 from skimage.io import imread, imsave
 import numpy as np
+from config_tool import get_paths
+import os
 
-sample_image_file = "/dltraining/dataset/train_images/host-a004_cam0_1232815253451064006.jpeg"
-# sample_image_file = "/Users/kanhua/Downloads/3d-object-detection-for-autonomous-vehicles/train_images/host-a004_cam0_1232815252251064006.jpeg"
+data_path, _, _ = get_paths()
+sample_image_file = os.path.join(data_path, 'images', 'host-a004_cam0_1232815252251064006.jpeg')
 
 sample_image = imread(sample_image_file)
 
@@ -19,5 +21,5 @@ image_to_be_drawn = np.copy(sample_image)
 strings = [[g_type_object_of_interest[map_2d_detector[int(nboxes[i, 5])]]] for i in range(nboxes.shape[0])]
 draw_bounding_boxes_on_image_array(image_to_be_drawn, nboxes[:, 0:4], display_str_list_list=strings)
 
-print(nboxes)
+#print(nboxes)
 imsave("test.png", image_to_be_drawn)

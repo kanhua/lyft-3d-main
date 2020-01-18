@@ -3,10 +3,10 @@ from detect_traffic_light import detect_object_single, \
 from vis_util import draw_result_on_image
 import tensorflow as tf
 import numpy as np
-import cv2
 import random
 import string
 import os
+from skimage.io import imsave
 
 
 def record_image(cv_image, ref_state, save_path):
@@ -15,7 +15,7 @@ def record_image(cv_image, ref_state, save_path):
     if random_val < image_saving_frequency:
         random_str = ''.join([random.choice(string.ascii_letters + string.digits) for n in range(8)])
 
-        cv2.imwrite(os.path.join(save_path, random_str + "_" + str(ref_state) + '.PNG'), cv_image)
+        imsave(os.path.join(save_path, random_str + "_" + str(ref_state) + '.PNG'), cv_image)
 
 
 # select only the classes of traffic light
