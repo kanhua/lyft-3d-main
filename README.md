@@ -102,3 +102,6 @@ Plot frustum in 3D: [plot_v2_data.py](plot_v2_data.py)
 
 Test plot frustums and rotated frustums point cloud points: ```prepare_lyft_data_v2_test.test_plot_one_frustum```
 
+Test plot frustums and rotated frustums point cloud points with rgb detection: ```prepare_lyft_data_v2_rgb_test.FrustumRGBTestCase.test_plot_frustums```
+
+Visualize predicted results in 3D from RGB data: view_full_pipeline.plot_prediction_data (work in progress)

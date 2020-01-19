@@ -6,8 +6,13 @@ Date: September 2017
 Ref: https://github.com/hengck23/didi-udacity-2017/blob/master/baseline-04/kitti_data/draw.py
 '''
 
+import warnings
 import numpy as np
-import mayavi.mlab as mlab
+
+try:
+    import mayavi.mlab as mlab
+except ImportError:
+    warnings.warn("myavi is not installed")
 import pandas as pd
 from prepare_lyft_data import parse_string_to_box, transform_box_from_world_to_sensor_coordinates, \
     get_sensor_to_world_transform_matrix_from_sample_data_token

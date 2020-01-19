@@ -29,20 +29,24 @@ def test_3d_lidar_points_in_camera_coords():
 
     pv.render_3d_lidar_points_to_camera_coordinates(test_token, prob_threshold=0.4)
 
+
 def plot_prediction_data():
-    pv = PredViewer(pred_file="test_pred.csv", lyftd=load_test_data())
-    test_token = pv.pred_pd.index[1300]
+    lyftd = load_test_data()
+    pv = PredViewer(pred_file="test_pred.csv", lyftd=lyftd)
+
+    #test_token = lyftd.sample[2]['token']
+    test_token = pv.pred_pd.index[100]
 
     pv.render_3d_lidar_points_to_camera_coordinates(test_token, prob_threshold=0.4)
-
 
 
 if __name__ == "__main__":
     # test_one_sample_token()
     # test_3d_lidar_points()
-    #test_3d_lidar_points_in_camera_coords()
+    # test_3d_lidar_points_in_camera_coords()
     plot_prediction_data()
     import mayavi.mlab as mlab
+
     mlab.savefig("./artifact/test_mlab_3d.png")
 
     input()

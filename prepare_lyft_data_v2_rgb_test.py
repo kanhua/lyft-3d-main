@@ -54,7 +54,13 @@ class FrustumRGBTestCase(unittest.TestCase):
                 tfrw.write(tfexample.SerializeToString())
 
     def test_plot_frustums(self):
-        test_sample_token = self.level5testdata.sample[0]['token']
+        from viz_util_for_lyft import PredViewer
+        pv = PredViewer(pred_file="test_pred.csv", lyftd=self.level5testdata)
+
+        # test_token = lyftd.sample[2]['token']
+        test_sample_token = pv.pred_pd.index[100]
+
+        #test_sample_token = self.level5testdata.sample[2]['token']
 
         print(test_sample_token)
 
@@ -63,7 +69,8 @@ class FrustumRGBTestCase(unittest.TestCase):
         ax_dict = {}
         for fp in fg.generate_frustums_from_2d(self.object_classifier):
             if fp.camera_token not in ax_dict.keys():
-                fig, ax = plt.subplots(nrows=1, ncols=4, figsize=(28, 7))
+                fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(21, 7))
+                fig2, ax2d = plt.subplots()
                 ax_dict[fp.camera_token] = (fig, ax)
                 fp.render_image(ax[0])
 
@@ -75,7 +82,10 @@ class FrustumRGBTestCase(unittest.TestCase):
                                                                     score_threshold=[0.4 for i in range(9)],
                                                                     target_classes=[i for i in range(1, 10, 1)])
                 n_image_array = self.object_classifier.draw_result(image_array, nboxes)
-                ax[3].imshow(n_image_array)
+                ax2d.imshow(n_image_array)
+
+                channel = self.level5testdata.get("sample_data", fp.camera_token)['channel']
+                fig2.savefig("./artifact/{}_2d_detection.png".format(channel), dpi=450)
 
             else:
                 ax = ax_dict[fp.camera_token][1]
@@ -89,7 +99,7 @@ class FrustumRGBTestCase(unittest.TestCase):
         for key in ax_dict.keys():
             fig, ax = ax_dict[key]
             channel = self.level5testdata.get("sample_data", key)['channel']
-            fig.savefig("./artifact/{}_from_rgb.png".format(channel),dpi=450)
+            fig.savefig("./artifact/{}_from_rgb.png".format(channel), dpi=450)
 
 
 if __name__ == '__main__':
