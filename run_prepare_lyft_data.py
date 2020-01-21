@@ -33,19 +33,32 @@ class SceneProcessor(object):
         else:
             self.object_classifier = None
 
+        if self.from_rgb_detection:
+            self.file_type = "rgb"
+        else:
+            self.file_type = "gt"
+
     def process_one_scene(self, scene_num):
         _, artifact_path, _ = get_paths()
-        if self.from_rgb_detection:
-            file_type = "rgb"
-        else:
-            file_type = "gt"
         with tf.io.TFRecordWriter(
                 os.path.join(artifact_path,
-                             "scene_{0}_{1}_{2}.tfrec".format(scene_num, self.data_type, file_type))) as tfrw:
+                             "scene_{0}_{1}_{2}.tfrec".format(scene_num, self.data_type, self.file_type))) as tfrw:
             for fp in get_all_boxes_in_single_scene(scene_num, self.from_rgb_detection,
                                                     self.lyftd, object_classifier=self.object_classifier):
                 tfexample = fp.to_train_example()
                 tfrw.write(tfexample.SerializeToString())
+
+    def find_processed_scenes(self, data_path):
+
+        pat = "scene_(\d+)_" + self.data_type + "_" + self.file_type + ".tfrec"
+
+        processed_num_list = []
+        for file in os.listdir(data_path):
+            matched_object = re.match(pat, file)
+            if matched_object is not None:
+                processed_num_list.append(int(matched_object[1]))
+
+        return processed_num_list
 
 
 def list_all_files(data_dir=None, pat="scene_\d+_train.tfrec"):
@@ -69,7 +82,14 @@ def main(argv):
     sp = SceneProcessor(FLAGS.data_type, from_rgb_detection=FLAGS.from_rgb)
 
     if "all" in FLAGS.scenes:
-        scenes_to_process = range(210)
+        scenes_to_process = range(218)
+    elif "rest" in FLAGS.scenes:
+        _, artifact_path, _ = get_paths()
+        processed_scenes = sp.find_processed_scenes(artifact_path)
+        scenes_to_process = []
+        for i in range(218):
+            if i not in processed_scenes:
+                scenes_to_process.append(i)
     else:
         scenes_to_process = map(int, FLAGS.scenes)
 
