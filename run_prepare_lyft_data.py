@@ -28,7 +28,7 @@ class SceneProcessor(object):
         self.from_rgb_detection = from_rgb_detection
         self.data_type = data_type
         if self.from_rgb_detection:
-            from object_classifier import TLClassifier
+            from object_classifier import TLClassifier,LoaderClassifier
             self.object_classifier = TLClassifier()
         else:
             self.object_classifier = None

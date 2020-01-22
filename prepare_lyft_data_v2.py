@@ -257,7 +257,7 @@ class FrustumGenerator(object):
                                                                              point_cloud, self.lyftd)
             image_array = imread(image_path)
 
-            all_sel_boxes = object_classifier.detect_multi_object(image_array, output_target_class=True,
+            all_sel_boxes = object_classifier.detect_multi_object_from_file(image_path, output_target_class=True,
                                                                   score_threshold=[0.4 for i in range(9)],
                                                                   rearrange_to_pointnet_convention=True,
                                                                   target_classes=[i for i in range(1, 10, 1)])

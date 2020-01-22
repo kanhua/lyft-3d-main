@@ -97,6 +97,27 @@ def classify_all_boxes_in_image(image_np, boxes):
     return result_index_array
 
 
+from config_tool import get_paths
+
+data_path, artifacts_path, _ = get_paths()
+
+detection_path = os.path.join(artifacts_path, "detection")
+
+
+class LoaderClassifier(object):
+    def __init__(self):
+        pass
+
+    def detect_multi_object_from_file(self, image_path, **kwargs):
+        head, tail = os.path.split(image_path)
+        base, ext = os.path.splitext(tail)
+        det_result_path = os.path.exists(os.path.join(detection_path, base + ".npy"))
+        if not det_result_path:
+            raise FileNotFoundError("the image {} does not exist".format(tail))
+        else:
+            return np.load(det_result_path)
+
+
 class TLClassifier(object):
     def __init__(self):
 
