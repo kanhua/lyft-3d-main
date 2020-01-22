@@ -77,7 +77,7 @@ class FrustumRGBTestCase(unittest.TestCase):
                 image_path = self.level5testdata.get_sample_data_path(fp.camera_token)
 
                 image_array = imread(image_path)
-                nboxes = self.object_classifier.detect_multi_object(image_array, output_target_class=True,
+                nboxes = self.object_classifier.detect_multi_object_from_file(image_path, output_target_class=True,
                                                                     rearrange_to_pointnet_convention=False,
                                                                     score_threshold=[0.4 for i in range(9)],
                                                                     target_classes=[i for i in range(1, 10, 1)])

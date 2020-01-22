@@ -6,7 +6,7 @@ import numpy as np
 import random
 import string
 import os
-from skimage.io import imsave
+from skimage.io import imsave, imread
 
 from model_util import g_type_object_of_interest, map_2d_detector
 
@@ -143,6 +143,10 @@ class TLClassifier(object):
 
         return sel_box
 
+    def detect_multi_object_from_file(self, image_path, **kwargs):
+        image_np = imread(image_path)
+        return self.detect_multi_object(image_np, **kwargs)
+
     def detect_multi_object(self, image_np, score_threshold=[0.8, 0.8, 0.8],
                             # target_classes=[3, 1, 2], coco dataset id
                             target_classes=[1, 2, 9],  # my own model
@@ -194,28 +198,6 @@ class TLClassifier(object):
                 all_sel_boxes = np.concatenate((all_sel_boxes, box_scores_ids))
 
         return all_sel_boxes
-
-    def get_classification(self, image):
-        """Determines the color of the traffic light in the image
-
-        Args:
-            image (cv::Mat): image containing the traffic light
-
-        Returns:
-            int: ID of traffic light color (specified in styx_msgs/TrafficLight)
-
-        """
-        # TODO implement light color prediction
-
-        cropped_image = self.detect_object(image)
-        if cropped_image is None:
-            return 4
-        # cropped_image=image
-        # bgr_cropped_image=cv2.cvtColor(cropped_image,cv2.COLOR_RGB2BGR)
-        # record_image(bgr_cropped_image,0,"./cropped_data")
-        self.classified_index, _ = classify_color_cropped_image(cropped_image)
-
-        return self.classified_index
 
     def draw_result(self, image_array, nboxes):
 
