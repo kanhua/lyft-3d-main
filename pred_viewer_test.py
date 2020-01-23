@@ -32,10 +32,10 @@ def test_3d_lidar_points_in_camera_coords():
 
 def plot_prediction_data():
     lyftd = load_test_data()
-    pv = PredViewer(pred_file="test_pred.csv", lyftd=lyftd)
+    pv = PredViewer(pred_file="prediction.csv", lyftd=lyftd)
 
     #test_token = lyftd.sample[2]['token']
-    test_token = pv.pred_pd.index[100]
+    test_token = pv.pred_pd.index[22]
 
     pv.render_3d_lidar_points_to_camera_coordinates(test_token, prob_threshold=0.4)
 

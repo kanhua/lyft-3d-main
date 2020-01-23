@@ -55,10 +55,10 @@ class FrustumRGBTestCase(unittest.TestCase):
 
     def test_plot_frustums(self):
         from viz_util_for_lyft import PredViewer
-        pv = PredViewer(pred_file="test_pred.csv", lyftd=self.level5testdata)
+        pv = PredViewer(pred_file="prediction.csv", lyftd=self.level5testdata)
 
         # test_token = lyftd.sample[2]['token']
-        test_sample_token = pv.pred_pd.index[100]
+        test_sample_token = pv.pred_pd.index[22]
 
         #test_sample_token = self.level5testdata.sample[2]['token']
 
