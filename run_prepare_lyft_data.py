@@ -47,7 +47,7 @@ class SceneProcessor(object):
                 os.path.join(artifact_path,
                              "scene_{0}_{1}_{2}.tfrec".format(scene_num, self.data_type, self.file_type))) as tfrw:
             for fp in get_all_boxes_in_single_scene(scene_number=scene_num, from_rgb_detection=self.from_rgb_detection,
-                                                    lyftd=self.lyftd,
+                                                    ldf=self.lyftd,
                                                     use_multisweep=self.use_multisweep,
                                                     object_classifier=self.object_classifier):
                 tfexample = fp.to_train_example()
