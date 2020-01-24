@@ -64,7 +64,7 @@ class FrustumRGBTestCase(unittest.TestCase):
 
         print(test_sample_token)
 
-        fg = FrustumGenerator(sample_token=test_sample_token, lyftd=self.level5testdata)
+        fg = FrustumGenerator(sample_token=test_sample_token, lyftd=self.level5testdata,use_multisweep=True)
 
         ax_dict = {}
         for fp in fg.generate_frustums_from_2d(self.object_classifier):

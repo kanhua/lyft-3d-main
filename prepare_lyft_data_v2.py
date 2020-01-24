@@ -130,7 +130,7 @@ def class2size(pred_cls, residual):
 class FrustumGenerator(object):
 
     def __init__(self, sample_token: str, lyftd: LyftDataset,
-                 camera_type=None):
+                 camera_type=None, use_multisweep=False):
 
         self.object_of_interest_name = g_type_object_of_interest
         if camera_type is None:
@@ -143,6 +143,7 @@ class FrustumGenerator(object):
         self.point_cloud_in_sensor_coord, self.ref_lidar_token = self._read_pointcloud(use_multisweep=True)
 
         self.point_cloud_in_camera_coords = {}  # camkey: pointcloud
+        self.use_multisweep = use_multisweep
 
     def _get_camera_keys(self):
         cams = [key for key in self.sample_record["data"].keys() if "CAM" in key]
@@ -243,7 +244,7 @@ class FrustumGenerator(object):
         for cam_key in self.camera_keys:
             camera_token = self.sample_record['data'][cam_key]
             camera_data = self.lyftd.get('sample_data', camera_token)
-            point_cloud, lidar_token = self._read_pointcloud(use_multisweep=False)
+            point_cloud, lidar_token = self._read_pointcloud(use_multisweep=self.use_multisweep)
             # lidar data needs to be reloaded every time
             # Idea: this part can be expanded: different camera image data could use different lidar data,
             # CAM_FRONT_RIGHT can also use LIDAR_FRONT_RIGHT
@@ -258,9 +259,9 @@ class FrustumGenerator(object):
             image_array = imread(image_path)
 
             all_sel_boxes = object_classifier.detect_multi_object_from_file(image_path, output_target_class=True,
-                                                                  score_threshold=[0.4 for i in range(9)],
-                                                                  rearrange_to_pointnet_convention=True,
-                                                                  target_classes=[i for i in range(1, 10, 1)])
+                                                                            score_threshold=[0.4 for i in range(9)],
+                                                                            rearrange_to_pointnet_convention=True,
+                                                                            target_classes=[i for i in range(1, 10, 1)])
             from model_util import map_2d_detector
             for idx in range(all_sel_boxes.shape[0]):
                 xmin, xmax, ymin, ymax, score, raw_object_id = all_sel_boxes[idx, :]
@@ -287,7 +288,7 @@ class FrustumGenerator(object):
                 point_clouds_in_box = point_clouds_in_box[0:3, :]
                 point_clouds_in_box = np.transpose(point_clouds_in_box)
 
-                if point_clouds_in_box.shape[0] < 300:
+                if point_clouds_in_box.shape[0] < 100:
                     continue
 
                 assert object_id == int(object_id)
@@ -496,7 +497,6 @@ class FrustumPoints2D(FrusutmPoints):
         return example
 
     def render_image(self, ax):
-
         image_path = self.lyftd.get_sample_data_path(self.camera_token)
 
         image_array = imread(image_path)
@@ -504,8 +504,6 @@ class FrustumPoints2D(FrusutmPoints):
         channel = self.lyftd.get("sample_data", self.camera_token)['channel']
         ax.set_title(channel)
         ax.imshow(image_array)
-
-
 
 
 def parse_frustum_point_record_2d(tfexample_message: str):
@@ -725,7 +723,8 @@ def get_frustum_angle(lyftd: LyftDataset, cam_token, xmax, xmin, ymax, ymin):
     return frustum_angle
 
 
-def get_all_boxes_in_single_scene(scene_number, from_rgb_detection, ldf: LyftDataset, object_classifier=None):
+def get_all_boxes_in_single_scene(scene_number, from_rgb_detection, ldf: LyftDataset, use_multisweep,object_classifier=None
+                                  ):
     start_sample_token = ldf.scene[scene_number]['first_sample_token']
     sample_token = start_sample_token
     counter = 0
@@ -734,7 +733,7 @@ def get_all_boxes_in_single_scene(scene_number, from_rgb_detection, ldf: LyftDat
             logging.info("Processing {} token {}".format(scene_number, counter))
         counter += 1
         sample_record = ldf.get('sample', sample_token)
-        fg = FrustumGenerator(sample_token, ldf)
+        fg = FrustumGenerator(sample_token, ldf,use_multisweep=use_multisweep)
         if not from_rgb_detection:
             for fp in fg.generate_frustums():
                 yield fp

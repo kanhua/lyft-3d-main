@@ -12,13 +12,14 @@ import re
 flags.DEFINE_list("scenes", "", "scenes to be processed")
 flags.DEFINE_string("data_type", "train", "file type")
 flags.DEFINE_boolean("from_rgb", False, "whether from RGB detection")
+flags.DEFINE_boolean("use_multisweep", False, "Use multisweep to collect Lidar points")
 
 FLAGS = flags.FLAGS
 
 
 class SceneProcessor(object):
 
-    def __init__(self, data_type, from_rgb_detection):
+    def __init__(self, data_type, from_rgb_detection, use_multisweep):
         if data_type == "train":
             self.lyftd = load_train_data()
         elif data_type == "test":
@@ -28,7 +29,7 @@ class SceneProcessor(object):
         self.from_rgb_detection = from_rgb_detection
         self.data_type = data_type
         if self.from_rgb_detection:
-            from object_classifier import TLClassifier,LoaderClassifier
+            from object_classifier import TLClassifier, LoaderClassifier
             self.object_classifier = TLClassifier()
         else:
             self.object_classifier = None
@@ -38,13 +39,17 @@ class SceneProcessor(object):
         else:
             self.file_type = "gt"
 
+        self.use_multisweep = use_multisweep
+
     def process_one_scene(self, scene_num):
         _, artifact_path, _ = get_paths()
         with tf.io.TFRecordWriter(
                 os.path.join(artifact_path,
                              "scene_{0}_{1}_{2}.tfrec".format(scene_num, self.data_type, self.file_type))) as tfrw:
-            for fp in get_all_boxes_in_single_scene(scene_num, self.from_rgb_detection,
-                                                    self.lyftd, object_classifier=self.object_classifier):
+            for fp in get_all_boxes_in_single_scene(scene_number=scene_num, from_rgb_detection=self.from_rgb_detection,
+                                                    lyftd=self.lyftd,
+                                                    use_multisweep=self.use_multisweep,
+                                                    object_classifier=self.object_classifier):
                 tfexample = fp.to_train_example()
                 tfrw.write(tfexample.SerializeToString())
 
@@ -79,7 +84,7 @@ def main(argv):
     from multiprocessing import Pool
     logging.set_verbosity(logging.INFO)
 
-    sp = SceneProcessor(FLAGS.data_type, from_rgb_detection=FLAGS.from_rgb)
+    sp = SceneProcessor(FLAGS.data_type, from_rgb_detection=FLAGS.from_rgb, use_multisweep=FLAGS.use_multisweep)
 
     if "all" in FLAGS.scenes:
         scenes_to_process = range(218)
