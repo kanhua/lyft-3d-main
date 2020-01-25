@@ -165,6 +165,13 @@ class FrustumGenerator(object):
 
         return pc, lidar_data_token
 
+    def generate_image_paths(self):
+
+        for cam_key in self.camera_keys:
+            camera_token = self.sample_record['data'][cam_key]
+            image_path = self.lyftd.get_sample_data_path(camera_token)
+            yield image_path
+
     def generate_frustums(self):
         clip_distance = 2.0
         max_clip_distance = 60
@@ -723,8 +730,8 @@ def get_frustum_angle(lyftd: LyftDataset, cam_token, xmax, xmin, ymax, ymin):
     return frustum_angle
 
 
-def get_all_boxes_in_single_scene(scene_number, from_rgb_detection, ldf: LyftDataset, use_multisweep,object_classifier=None
-                                  ):
+def get_all_boxes_in_single_scene(scene_number, from_rgb_detection, ldf: LyftDataset, use_multisweep,
+                                  object_classifier=None):
     start_sample_token = ldf.scene[scene_number]['first_sample_token']
     sample_token = start_sample_token
     counter = 0
@@ -733,7 +740,7 @@ def get_all_boxes_in_single_scene(scene_number, from_rgb_detection, ldf: LyftDat
             logging.info("Processing {} token {}".format(scene_number, counter))
         counter += 1
         sample_record = ldf.get('sample', sample_token)
-        fg = FrustumGenerator(sample_token, ldf,use_multisweep=use_multisweep)
+        fg = FrustumGenerator(sample_token, ldf, use_multisweep=use_multisweep)
         if not from_rgb_detection:
             for fp in fg.generate_frustums():
                 yield fp
@@ -741,6 +748,24 @@ def get_all_boxes_in_single_scene(scene_number, from_rgb_detection, ldf: LyftDat
             # reserved for rgb detection data
             for fp in fg.generate_frustums_from_2d(object_classifier):
                 yield fp
+
+        next_sample_token = sample_record['next']
+        sample_token = next_sample_token
+
+
+def get_all_image_paths_in_single_scene(scene_number, ldf: LyftDataset):
+    start_sample_token = ldf.scene[scene_number]['first_sample_token']
+    sample_token = start_sample_token
+    counter = 0
+    while sample_token != "":
+        if counter % 10 == 0:
+            logging.info("Processing {} token {}".format(scene_number, counter))
+        counter += 1
+        sample_record = ldf.get('sample', sample_token)
+        fg = FrustumGenerator(sample_token, ldf)
+
+        for image_path in fg.generate_image_paths():
+            yield image_path
 
         next_sample_token = sample_record['next']
         sample_token = next_sample_token

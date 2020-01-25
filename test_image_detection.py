@@ -8,6 +8,8 @@ from skimage.io import imread, imsave
 
 from model_util import map_2d_detector, g_type_object_of_interest
 import numpy as np
+from prepare_lyft_data_v2 import load_train_data, get_all_image_paths_in_single_scene
+
 
 class ImageDetectionTestCase(unittest.TestCase):
     def test_load_pickle_file(self):
@@ -33,6 +35,12 @@ class ImageDetectionTestCase(unittest.TestCase):
         imsave("./artifact/test_read_pickle.png", image_np)
 
         # save_file = os.path.join(det_path, root + ".pickle")
+
+    def test_get_image_paths_in_one_scene(self):
+        lyftd = load_train_data()
+
+        for image_paths in get_all_image_paths_in_single_scene(scene_number=0, ldf=lyftd):
+            print(image_paths)
 
 
 if __name__ == '__main__':
