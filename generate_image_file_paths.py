@@ -15,6 +15,7 @@ class SceneImagePathSaver(object):
     def find_and_save_image_in_scene(self, scene_num):
         print("processing :{}".format(scene_num))
         all_images = [ip for ip in get_all_image_paths_in_single_scene(scene_number=scene_num, ldf=self.lyftd)]
+        # TODO the file name should follow the type of dataset, train_scene_{} or test_scene_{}
         with open(os.path.join(self.det_path, "test_scene_{}_images.pickle".format(scene_num)), 'wb') as fp:
             pickle.dump(all_images, fp)
 

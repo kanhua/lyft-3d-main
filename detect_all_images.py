@@ -36,6 +36,7 @@ def load_image_paths_in_scene(scene_num):
 
 def detect_image_in_scene(scene_num):
     print("processing :{}".format(scene_num))
+    # TODO the file name should follow the type of dataset, train_scene_{} or test_scene_{}
     pre_processed_scene_image_file = os.path.join(det_path, "test_scene_{}_images.pickle".format(scene_num))
     if os.path.exists(pre_processed_scene_image_file):
         print("use proprocessed paths")
