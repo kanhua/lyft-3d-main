@@ -13,13 +13,14 @@ flags.DEFINE_list("scenes", "", "scenes to be processed")
 flags.DEFINE_string("data_type", "train", "file type")
 flags.DEFINE_boolean("from_rgb", False, "whether from RGB detection")
 flags.DEFINE_boolean("use_multisweep", False, "Use multisweep to collect Lidar points")
+flags.DEFINE_boolean("use_detected_2d", False, "Load predetected 2D data")
 
 FLAGS = flags.FLAGS
 
 
 class SceneProcessor(object):
 
-    def __init__(self, data_type, from_rgb_detection, use_multisweep):
+    def __init__(self, data_type, from_rgb_detection, use_multisweep, use_detected_2d=False):
         if data_type == "train":
             self.lyftd = load_train_data()
         elif data_type == "test":
@@ -29,8 +30,12 @@ class SceneProcessor(object):
         self.from_rgb_detection = from_rgb_detection
         self.data_type = data_type
         if self.from_rgb_detection:
-            from object_classifier import TLClassifier, LoaderClassifier
-            self.object_classifier = TLClassifier()
+            if use_detected_2d:
+                from object_classifier import LoaderClassifier
+                self.object_classifier = LoaderClassifier()
+            else:
+                from object_classifier import TLClassifier
+                self.object_classifier = TLClassifier()
         else:
             self.object_classifier = None
 
@@ -84,7 +89,8 @@ def main(argv):
     from multiprocessing import Pool
     logging.set_verbosity(logging.INFO)
 
-    sp = SceneProcessor(FLAGS.data_type, from_rgb_detection=FLAGS.from_rgb, use_multisweep=FLAGS.use_multisweep)
+    sp = SceneProcessor(FLAGS.data_type, from_rgb_detection=FLAGS.from_rgb, use_multisweep=FLAGS.use_multisweep,
+                        use_detected_2d=FLAGS.use_detected_2d)
 
     if "all" in FLAGS.scenes:
         scenes_to_process = range(218)
@@ -99,9 +105,14 @@ def main(argv):
         scenes_to_process = map(int, FLAGS.scenes)
 
     if FLAGS.from_rgb:  # it seems that object detector does not support parallel processes
-        for s in scenes_to_process:
-            # map(sp.process_one_scene, scenes_to_process)
-            sp.process_one_scene(s)
+        if FLAGS.use_detected_2d:
+            logging.info("parallel processing RGB data:")
+            with Pool(processes=7) as p:
+                p.map(sp.process_one_scene, scenes_to_process)
+        else:
+            for s in scenes_to_process:
+                # map(sp.process_one_scene, scenes_to_process)
+                sp.process_one_scene(s)
     else:
         logging.info("parallel processing GT data:")
         with Pool(processes=7) as p:

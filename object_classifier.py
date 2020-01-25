@@ -106,6 +106,50 @@ detection_path = os.path.join(artifacts_path, "detection")
 import pickle
 
 
+def load_detection_boxes(detection_data_path, image_path, score_threshold=[0.4 for i in range(9)],
+                         target_classes=[1, 2, 3, 4, 5, 6, 7, 8, 9],
+                         rearrange_to_pointnet_convention=True,
+                         output_target_class=False):
+    assert len(score_threshold) == len(target_classes)
+
+    #print(detection_data_path)
+    with open(detection_data_path, 'rb') as fp:
+        detection_result = pickle.load(fp)
+
+    boxes = detection_result['boxes']
+    scores = detection_result['scores']
+    classes = detection_result['classes']
+    num = detection_result['num']
+
+    #print("boxes:", boxes)
+    #print("scores", scores)
+    #print("classes", classes)
+    #print("number of detections", num)
+
+    all_sel_boxes = None
+    sq_boxes = np.squeeze(boxes)
+    for idx, target_class in enumerate(target_classes):
+        ids = select_boxes_ids(boxes=boxes, classes=classes, scores=scores,
+                               score_threshold=score_threshold[idx], target_class=target_class)
+        sel_boxes = sq_boxes[ids]
+        if rearrange_to_pointnet_convention:
+            image_np = imread(image_path)
+            sel_boxes = rearrange_and_rescale_box_elements(sel_boxes, image_np)
+        box_scores_ids = np.empty((sel_boxes.shape[0], 6))
+        box_scores_ids[:, 0:4] = sel_boxes
+        box_scores_ids[:, 4] = np.squeeze(scores)[ids]
+        if output_target_class:
+            box_scores_ids[:, 5] = np.squeeze(classes)[ids]
+        else:
+            box_scores_ids[:, 5] = idx
+        if all_sel_boxes is None:
+            all_sel_boxes = box_scores_ids
+        else:
+            all_sel_boxes = np.concatenate((all_sel_boxes, box_scores_ids))
+
+    return all_sel_boxes
+
+
 class LoaderClassifier(object):
     def __init__(self):
         pass
@@ -113,11 +157,11 @@ class LoaderClassifier(object):
     def detect_multi_object_from_file(self, image_path, **kwargs):
         head, tail = os.path.split(image_path)
         base, ext = os.path.splitext(tail)
-        det_result_path = os.path.exists(os.path.join(detection_path, base + ".npy"))
-        if not det_result_path:
-            raise FileNotFoundError("the image {} does not exist".format(tail))
+        det_result_path = os.path.join(detection_path, base + ".pickle")
+        if not os.path.exists(det_result_path):
+            raise FileNotFoundError("the image detection file {} does not exist".format(det_result_path))
         else:
-            return np.load(det_result_path)
+            return load_detection_boxes(det_result_path, image_path, **kwargs)
 
 
 class FastClassifer(object):

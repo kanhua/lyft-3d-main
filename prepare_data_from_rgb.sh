@@ -1,1 +1,1 @@
-python run_prepare_lyft_data.py --scenes 0 --data_type test --from_rgb --use_multisweep
+python run_prepare_lyft_data.py --scenes 1,2,3,4,5,6,7,8,9,10 --data_type test --from_rgb --use_multisweep --use_detected_2d
