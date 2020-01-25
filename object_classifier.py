@@ -103,6 +103,8 @@ data_path, artifacts_path, _ = get_paths()
 
 detection_path = os.path.join(artifacts_path, "detection")
 
+import pickle
+
 
 class LoaderClassifier(object):
     def __init__(self):
@@ -116,6 +118,52 @@ class LoaderClassifier(object):
             raise FileNotFoundError("the image {} does not exist".format(tail))
         else:
             return np.load(det_result_path)
+
+
+class FastClassifer(object):
+
+    def __init__(self):
+        self.detection_graph = load_graph()
+        self.extract_graph_components()
+        self.sess = tf.Session(graph=self.detection_graph)
+
+        # run the first session to "warm up"
+        dummy_image = np.zeros((100, 100, 3))
+        self.detect_object(dummy_image)
+
+    def extract_graph_components(self):
+        # Definite input and output Tensors for detection_graph
+        self.image_tensor = self.detection_graph.get_tensor_by_name('image_tensor:0')
+        # Each box represents a part of the image where a particular object was detected.
+        self.detection_boxes = self.detection_graph.get_tensor_by_name('detection_boxes:0')
+        # Each score represent how level of confidence for each of the objects.
+        # Score is shown on the result image, together with the class label.
+        self.detection_scores = self.detection_graph.get_tensor_by_name('detection_scores:0')
+        self.detection_classes = self.detection_graph.get_tensor_by_name('detection_classes:0')
+        self.num_detections = self.detection_graph.get_tensor_by_name('num_detections:0')
+
+    def detect_object(self, image_np):
+        # Expand dimensions since the model expects images to have shape: [1, None, None, 3]
+        image_np_expanded = np.expand_dims(image_np, axis=0)
+        # Actual detection.
+
+        (boxes, scores, classes, num) = self.sess.run(
+            [self.detection_boxes, self.detection_scores, self.detection_classes, self.num_detections],
+            feed_dict={self.image_tensor: image_np_expanded})
+
+        scores = np.squeeze(scores)
+        classes = np.squeeze(classes)
+        boxes = np.squeeze(boxes)
+        num = np.squeeze(num)
+
+        return boxes, scores, classes, num
+
+    def detect_and_save(self, image_path, save_file):
+        image_np = imread(image_path)
+        det = dict()
+        det['boxes'], det['scores'], det['classes'], det['num'] = self.detect_object(image_np)
+        with open(save_file, 'wb') as fp:
+            pickle.dump(det, fp)
 
 
 class TLClassifier(object):
