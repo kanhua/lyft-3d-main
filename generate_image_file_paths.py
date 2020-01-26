@@ -26,11 +26,11 @@ def main(argv):
 
     det_path = os.path.join(artifacts_path, "detection")
 
-    scenes_to_process = range(40, 80, 1)
+    scenes_to_process = range(0, 218, 1)
     sp = SceneImagePathSaver(det_path, lyftd)
 
     from multiprocessing import Pool
-    with Pool(processes=5) as p:
+    with Pool(processes=3) as p:
         p.map(sp.find_and_save_image_in_scene, scenes_to_process)
 
 

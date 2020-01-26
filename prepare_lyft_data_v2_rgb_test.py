@@ -58,7 +58,7 @@ class FrustumRGBTestCase(unittest.TestCase):
         pv = PredViewer(pred_file="prediction.csv", lyftd=self.level5testdata)
 
         # test_token = lyftd.sample[2]['token']
-        test_sample_token = pv.pred_pd.index[22]
+        test_sample_token = pv.pred_pd.index[1]
 
         #test_sample_token = self.level5testdata.sample[2]['token']
 
