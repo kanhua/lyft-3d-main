@@ -48,6 +48,30 @@ in ```lyft_train_v2_on_local.sh``` and ```lyft_test_v2_on_local.sh```.
 
 To generate the file for Kaggle submission, run ```merge_prediction.py```
 
+
+## Testing
+
+The workflow of running testing:
+
+For each sample token, ```run_prepare_lyft_data.py``` run through the following process
+1. Load camera image 
+2. Use a pretrained 2D detector to find the 2D boxes
+3. Cut out the frustums from the pretrained 2D boxes
+
+However, the second step requires a GPU to compute efficiently. 
+To save the cost of running the 2D detector on AWS, I would like a GPU instance focuses on step 2.
+
+The workflow then becomes the following:
+
+1. Find all the images associated with a sample token in one go. (using CPU): [generate_image_file.py](generate_image_file_paths.py)
+2. Run the 2D detector (using a GPU instance) [detect_all_images.py](detect_all_images.py)
+3. Cut out frustums. (using CPU) [run_prepare_lyft_data.py --use_detected_2d](run_prepare_lyft_data.py) with 
+
+
+With step 1 executed in a CPU instance, it can saves the 50% of the time on a GPU instance, 
+compared to running step 1 and step 2 in a GPU instance.
+ 
+
 #### Not completed yet:
 Use the function ```parse_pointnet_output.get_box_from_inference()``` to transform the inferred results back to world coordinates. 
 This needs two steps:
