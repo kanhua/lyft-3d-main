@@ -2,7 +2,6 @@
 
 This project adapted the code of [frustum-pointnet](http://stanford.edu/~rqi/frustum-pointnets/) to solve this past Kaggle competition [Lyft 3D Object Detection for Autonomous Vehicles](https://www.kaggle.com/c/3d-object-detection-for-autonomous-vehicles)
 
-
 ## Main workflow of training and testing
 
 ### Setting the path configuration

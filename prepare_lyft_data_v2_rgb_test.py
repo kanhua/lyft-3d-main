@@ -7,7 +7,7 @@ from prepare_lyft_data_v2 import FrustumGenerator, get_all_boxes_in_single_scene
 import matplotlib.pyplot as plt
 import numpy as np
 from test_data_loader import load_test_data
-from object_classifier import TLClassifier
+from object_classifier import TLClassifier,draw_result
 from skimage.io import imread
 
 
@@ -67,8 +67,9 @@ class FrustumRGBTestCase(unittest.TestCase):
         fg = FrustumGenerator(sample_token=test_sample_token, lyftd=self.level5testdata,use_multisweep=True)
 
         ax_dict = {}
-        for fp in fg.generate_frustums_from_2d(self.object_classifier):
+        for fp in fg.generate_frustums_from_2d(self.object_classifier): #iterate through all the frustums
             if fp.camera_token not in ax_dict.keys():
+                # Do the following plots when a camera image is first encountered
                 fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(21, 7))
                 fig2, ax2d = plt.subplots()
                 ax_dict[fp.camera_token] = (fig, ax)
@@ -77,11 +78,8 @@ class FrustumRGBTestCase(unittest.TestCase):
                 image_path = self.level5testdata.get_sample_data_path(fp.camera_token)
 
                 image_array = imread(image_path)
-                nboxes = self.object_classifier.detect_multi_object_from_file(image_path, output_target_class=True,
-                                                                    rearrange_to_pointnet_convention=False,
-                                                                    score_threshold=[0.4 for i in range(9)],
-                                                                    target_classes=[i for i in range(1, 10, 1)])
-                n_image_array = self.object_classifier.draw_result(image_array, nboxes)
+                nboxes = fg.all_sel_boxes
+                n_image_array = draw_result(image_array, nboxes)
                 ax2d.imshow(n_image_array)
 
                 channel = self.level5testdata.get("sample_data", fp.camera_token)['channel']

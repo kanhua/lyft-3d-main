@@ -23,6 +23,8 @@ from absl import logging
 
 from skimage.io import imread
 
+from object_classifier import rearrange_and_rescale_box_elements
+
 
 def load_train_data():
     from config_tool import get_paths
@@ -265,15 +267,19 @@ class FrustumGenerator(object):
                                                                              point_cloud, self.lyftd)
             image_array = imread(image_path)
 
-            all_sel_boxes = object_classifier.detect_multi_object_from_file(image_path, output_target_class=True,
+            self.all_sel_boxes = object_classifier.detect_multi_object_from_file(image_path, output_target_class=True,
                                                                             score_threshold=[0.4 for i in range(9)],
-                                                                            rearrange_to_pointnet_convention=True,
+                                                                            rearrange_to_pointnet_convention=False,
                                                                             target_classes=[i for i in range(1, 10, 1)])
+
+            all_sel_boxes=rearrange_and_rescale_box_elements(self.all_sel_boxes,image_array)
+
             from model_util import map_2d_detector
             for idx in range(all_sel_boxes.shape[0]):
                 xmin, xmax, ymin, ymax, score, raw_object_id = all_sel_boxes[idx, :]
 
                 object_id = map_2d_detector[raw_object_id]
+                # map the indices returned by 2D detector to one_hot_vec indicies
 
                 mask = mask_points(point_cloud_in_camera_coord_2d, 0, image_array.shape[1], ymin=0,
                                    ymax=image_array.shape[0])

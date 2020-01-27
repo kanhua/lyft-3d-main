@@ -312,10 +312,10 @@ class TLClassifier(object):
 
         return all_sel_boxes
 
-    def draw_result(self, image_array, nboxes):
+def draw_result(image_array, nboxes):
 
-        image_to_be_drawn = np.copy(image_array)
-        strings = [[g_type_object_of_interest[map_2d_detector[int(nboxes[i, 5])]]] for i in range(nboxes.shape[0])]
-        draw_bounding_boxes_on_image_array(image_to_be_drawn, nboxes[:, 0:4], display_str_list_list=strings)
+    image_to_be_drawn = np.copy(image_array)
+    strings = [[g_type_object_of_interest[map_2d_detector[int(nboxes[i, 5])]]] for i in range(nboxes.shape[0])]
+    draw_bounding_boxes_on_image_array(image_to_be_drawn, nboxes[:, 0:4], display_str_list_list=strings)
 
-        return image_to_be_drawn
+    return image_to_be_drawn
