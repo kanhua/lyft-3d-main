@@ -70,7 +70,7 @@ def rearrange_and_rescale_box_elements(box, image_np):
     """
 
     im_height, im_width, _ = image_np.shape
-    nbox = np.zeros_like(box)
+    nbox = np.copy(box)
 
     nbox[:, 0] = box[:, 1] * im_width
     nbox[:, 1] = box[:, 3] * im_width
@@ -112,7 +112,7 @@ def load_detection_boxes(detection_data_path, image_path, score_threshold=[0.4 f
                          output_target_class=False):
     assert len(score_threshold) == len(target_classes)
 
-    #print(detection_data_path)
+    # print(detection_data_path)
     with open(detection_data_path, 'rb') as fp:
         detection_result = pickle.load(fp)
 
@@ -121,10 +121,10 @@ def load_detection_boxes(detection_data_path, image_path, score_threshold=[0.4 f
     classes = detection_result['classes']
     num = detection_result['num']
 
-    #print("boxes:", boxes)
-    #print("scores", scores)
-    #print("classes", classes)
-    #print("number of detections", num)
+    # print("boxes:", boxes)
+    # print("scores", scores)
+    # print("classes", classes)
+    # print("number of detections", num)
 
     all_sel_boxes = None
     sq_boxes = np.squeeze(boxes)
@@ -312,8 +312,8 @@ class TLClassifier(object):
 
         return all_sel_boxes
 
-def draw_result(image_array, nboxes):
 
+def draw_result(image_array, nboxes):
     image_to_be_drawn = np.copy(image_array)
     strings = [[g_type_object_of_interest[map_2d_detector[int(nboxes[i, 5])]]] for i in range(nboxes.shape[0])]
     draw_bounding_boxes_on_image_array(image_to_be_drawn, nboxes[:, 0:4], display_str_list_list=strings)

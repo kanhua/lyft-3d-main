@@ -1,4 +1,4 @@
-from viz_util_for_lyft import PredViewer
+from viz_util_for_lyft import PredViewer, draw_preprocess_results
 from prepare_lyft_data_v2 import load_train_data
 from test_data_loader import load_test_data
 import matplotlib.pyplot as plt
@@ -38,6 +38,13 @@ def plot_prediction_data():
     test_token = pv.pred_pd.index[1]
 
     pv.render_3d_lidar_points_to_camera_coordinates(test_token, prob_threshold=0.4)
+    from object_classifier import TLClassifier
+
+    tl = TLClassifier()
+
+    draw_preprocess_results(test_sample_token=test_token,
+                            lyftd=lyftd,
+                            object_classifier=tl)
 
 
 if __name__ == "__main__":
