@@ -7,13 +7,14 @@ This file tests how the results are put together to be Box3D and the run evaluat
 import numpy as np
 from parse_pointnet_output import read_frustum_pointnet_output_v2
 from prepare_lyft_data import load_train_data
-from lyft_dataset_sdk.eval.detection.mAP_evaluation import Box3D, get_ious
+from lyft_dataset_sdk.eval.detection.mAP_evaluation import Box3D, get_ious, get_average_precisions
 from lyft_dataset_sdk.utils.data_classes import Box
 from test_data_loader import load_test_data
 from typing import List
 from absl import flags, app
 import pandas as pd
 import math
+from model_util import g_type_object_of_interest
 
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("from_rgb_detection", False, "whether the frustum is generated from RGB detection")
@@ -43,6 +44,24 @@ class ScoreCalculator(object):
         boxes_str = df.loc[sample_token, 'PredictionString']
         return boxes_str
 
+    def calculate_average_precision(self, iou_threshold):
+
+        pred_box_list = []
+        gt_box_list = []
+        for index_num in range(self.pred_df.shape[0]):
+            sample_token_to_eval = self.pred_df.index[index_num]
+            pred_box_string = self.get_box_string(self.pred_df, sample_token_to_eval)
+            gt_box_string = self.get_box_string(self.gt_df, sample_token_to_eval)
+
+            pred_box_list.extend(parse_string_to_box(pred_box_string, with_score=True,
+                                                     output_type="dict", sample_token=sample_token_to_eval))
+            gt_box_list.extend(parse_string_to_box(gt_box_string, with_score=False,
+                                                   output_type="dict", sample_token=sample_token_to_eval))
+
+        average_precisions = get_average_precisions(gt_box_list, pred_box_list, g_type_object_of_interest,
+                                                    iou_threshold)
+        return average_precisions
+
     def calculate_single_entry(self, index: int):
         # Make boxes of gt_box
         sample_token_to_eval = self.pred_df.index[index]
@@ -50,10 +69,10 @@ class ScoreCalculator(object):
         pred_box_string = self.get_box_string(self.pred_df, sample_token_to_eval)
         gt_box_string = self.get_box_string(self.gt_df, sample_token_to_eval)
 
-        pred_3d_boxes = parse_string_to_box(pred_box_string, with_score=True, to_3dbox=True,
+        pred_3d_boxes = parse_string_to_box(pred_box_string, with_score=True, output_type="3dbox",
                                             sample_token=sample_token_to_eval)
 
-        gt_3d_boxes = parse_string_to_box(gt_box_string, with_score=False, to_3dbox=True,
+        gt_3d_boxes = parse_string_to_box(gt_box_string, with_score=False, output_type="3dbox",
                                           sample_token=sample_token_to_eval)
 
         # calculate average
@@ -65,14 +84,14 @@ class ScoreCalculator(object):
 
     def calculate_mean_ious(self):
 
-        all_max_ious=None
+        all_max_ious = None
         for i in range(self.pred_df.shape[0]):
             all_ious = self.calculate_single_entry(i)
             max_ious = np.max(all_ious, axis=0)
             if all_max_ious is not None:
-                all_max_ious=np.concatenate((all_max_ious,max_ious.ravel()))
+                all_max_ious = np.concatenate((all_max_ious, max_ious.ravel()))
             else:
-                all_max_ious=max_ious.ravel()
+                all_max_ious = max_ious.ravel()
 
         return np.mean(all_max_ious)
 
@@ -118,9 +137,9 @@ def main(argv):
     elif data_name == 'test':
         data = load_test_data()
 
-    pred_boxes=[]
-    sample_token_list=[]
-    for box, sample_token in read_frustum_pointnet_output_v2(data,inference_pickle_file):
+    pred_boxes = []
+    sample_token_list = []
+    for box, sample_token in read_frustum_pointnet_output_v2(data, inference_pickle_file):
         pred_boxes.append(box)
         sample_token_list.append(sample_token)
 
@@ -137,8 +156,6 @@ def main(argv):
     #     for pbox in pred_boxes_3d:
     #         ious = get_ious(gt_boxes_3d, pbox)
     #         print(np.array(ious).max())
-
-
 
 
 if __name__ == "__main__":

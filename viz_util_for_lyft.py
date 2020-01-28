@@ -25,13 +25,14 @@ import matplotlib.pyplot as plt
 
 class PredViewer(object):
 
-    def __init__(self, pred_file, lyftd: LyftDataset):
+    def __init__(self, pred_file, lyftd: LyftDataset, is_train=False):
         self.pred_pd = pd.read_csv(pred_file, index_col="Id")
         self.lyftd = lyftd
+        self.is_train = is_train
 
     def get_boxes_from_token(self, sample_token):
         boxes_str = self.pred_pd.loc[sample_token, 'PredictionString']
-        boxes = parse_string_to_box(boxes_str)
+        boxes = parse_string_to_box(boxes_str, output_type='box', with_score=True)
         return boxes
 
     def get_sample_record_from_token(self, sample_token):
@@ -128,7 +129,19 @@ class PredViewer(object):
 
                 box_pts.append(box_3d_pts)
 
+        gt_box_pts = []
+        if self.is_train:
+            gt_boxes = self.lyftd.get_boxes(camera_token)
+            for gt_box in gt_boxes:
+                gt_box_in_lidar_coord = transform_box_from_world_to_sensor_coordinates(gt_box, camera_token,
+                                                                                       self.lyftd)
+                gt_box_3d_pts = np.transpose(gt_box_in_lidar_coord.corners())
+
+                gt_box_pts.append(gt_box_3d_pts)
+
         draw_gt_boxes3d(box_pts, fig)
+        if self.is_train:
+            draw_gt_boxes3d(gt_box_pts, fig, color=(1.0, 0, 0))
 
         mlab.view(azimuth=270, elevation=150,
                   focalpoint=[0, 0, 0], distance=62.0, figure=fig)

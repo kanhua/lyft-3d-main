@@ -6,7 +6,7 @@ import os
 
 data_path, _, _ = get_paths()
 
-gt_file = os.path.join(data_path,"train.csv")
+gt_file = os.path.join(data_path, "train.csv")
 
 pred_file = "train_val_pred.csv"
 
@@ -19,3 +19,7 @@ mean_score = sc.calculate_mean_ious()
 print(scores)
 
 print(mean_score)
+
+avg_precision = sc.calculate_average_precision(0.5)
+
+print("avg precision: {}".format(avg_precision))

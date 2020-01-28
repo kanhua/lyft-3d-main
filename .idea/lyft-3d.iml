@@ -3,7 +3,6 @@
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$" />
     <content url="file://$MODULE_DIR$/../../github/models/research/object_detection" />
-    <content url="file://$MODULE_DIR$/../../github/nuscenes-devkit" />
     <orderEntry type="jdk" jdkName="Python 3.7 (lyft-3d)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>

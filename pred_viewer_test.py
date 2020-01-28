@@ -47,11 +47,21 @@ def plot_prediction_data():
                             object_classifier=tl)
 
 
+def plot_train_val_data():
+    lyftd = load_train_data()
+    pv = PredViewer(pred_file="train_val_pred.csv", lyftd=lyftd, is_train=True)
+
+    # test_token = lyftd.sample[2]['token']
+    test_token = pv.pred_pd.index[1]
+
+    pv.render_3d_lidar_points_to_camera_coordinates(test_token, prob_threshold=0.4)
+
+
 if __name__ == "__main__":
     # test_one_sample_token()
     # test_3d_lidar_points()
     # test_3d_lidar_points_in_camera_coords()
-    plot_prediction_data()
+    plot_train_val_data()
     import mayavi.mlab as mlab
 
     mlab.savefig("./artifact/test_mlab_3d.png")

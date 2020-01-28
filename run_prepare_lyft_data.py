@@ -107,7 +107,7 @@ def main(argv):
     if FLAGS.from_rgb:  # it seems that object detector does not support parallel processes
         if FLAGS.use_detected_2d:
             logging.info("parallel processing RGB data:")
-            with Pool(processes=7) as p:
+            with Pool(processes=2) as p:
                 p.map(sp.process_one_scene, scenes_to_process)
         else:
             for s in scenes_to_process:

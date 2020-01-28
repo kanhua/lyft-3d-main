@@ -11,6 +11,7 @@ from lyft_dataset_sdk.lyftdataset import LyftDataset, LyftDatasetExplorer
 from lyft_dataset_sdk.utils.data_classes import LidarPointCloud, Box, Quaternion
 from lyft_dataset_sdk.utils.geometry_utils import view_points, transform_matrix, \
     points_in_box, BoxVisibility
+from lyft_dataset_sdk.eval.detection.mAP_evaluation import Box3D
 
 import matplotlib.pyplot as plt
 
@@ -19,6 +20,7 @@ from skimage.io import imread
 
 from config_tool import get_paths
 from prepare_lyft_data_v2 import get_box_yaw_angle_in_camera_coords, get_frustum_angle
+import warnings
 
 try:
     tlc = TLClassifier()
@@ -31,11 +33,11 @@ except:
 
 from prepare_lyft_data_v2 import load_train_data
 
-level5data=load_train_data()
+level5data = load_train_data()
 
 DATA_PATH, ARTIFACT_PATH, _ = get_paths()
 
-default_train_file = os.path.join(DATA_PATH , "train.csv")
+default_train_file = os.path.join(DATA_PATH, "train.csv")
 
 
 def parse_train_csv(data_file=default_train_file, with_score=False):
@@ -65,9 +67,7 @@ def parse_train_csv(data_file=default_train_file, with_score=False):
     return train_objects
 
 
-import warnings
-def parse_string_to_box(ps, with_score=True,to_3dbox=False,sample_token=None) -> List[Box]:
-    from lyft_dataset_sdk.eval.detection.mAP_evaluation import Box3D
+def parse_string_to_box(ps, with_score=True, output_type="box", sample_token=None) -> List[Box]:
     boxes = []
 
     col_num = 8
@@ -79,12 +79,12 @@ def parse_string_to_box(ps, with_score=True,to_3dbox=False,sample_token=None) ->
     for i in range(n_objects // col_num):
         if with_score:
             score, x, y, z, w, l, h, yaw, c = tuple(object_params[i * 9: (i + 1) * 9])
-            score=float(score)
+            score = float(score)
         else:
             x, y, z, w, l, h, yaw, c = tuple(object_params[i * 8: (i + 1) * 8])
-            score=1.0   # assume ground truth
+            score = 1.0  # assume ground truth
 
-        if not (float(w)>0 and float(l) >0 and float(h) > 0):
+        if not (float(w) > 0 and float(l) > 0 and float(h) > 0):
             warnings.warn("wrong wlh value")
             continue
 
@@ -92,11 +92,16 @@ def parse_string_to_box(ps, with_score=True,to_3dbox=False,sample_token=None) ->
         center_pos = [float(x), float(y), float(z)]
         wlh = [float(w), float(l), float(h)]
         obj_name = c
-        if to_3dbox:
-            boxes.append(Box3D(translation=center_pos, size=wlh, rotation=orient_q.q, name=obj_name,score=score,
+        if output_type == "3dbox":
+            boxes.append(Box3D(translation=center_pos, size=wlh, rotation=orient_q.q, name=obj_name, score=score,
                                sample_token=sample_token))
+        elif output_type == "box":
+            boxes.append(Box(center=center_pos, size=wlh, orientation=orient_q, name=obj_name, score=score))
+        elif output_type == "dict":
+            boxes.append({'translation': center_pos, 'size': wlh, 'rotation': orient_q.q,
+                          'name': obj_name, 'score': score, 'sample_token': sample_token})
         else:
-            boxes.append(Box(center=center_pos, size=wlh, orientation=orient_q, name=obj_name,score=score))
+            raise ValueError("output_type must be either 3dbox, box, or dict")
 
     return boxes
 
@@ -901,7 +906,8 @@ def estimate_point_cloud_intensity(point_clouds_in_box):
 
 
 def select_annotation_boxes(sample_token, lyftd: LyftDataset, box_vis_level: BoxVisibility = BoxVisibility.ALL,
-                            camera_type=['CAM_FRONT', 'CAM_BACK','CAM_FRONT_LEFT','CAM_FRONT_RIGHT','CAM_BACK_RIGHT','CAM_BACK_LEFT']) -> (str, str, Box):
+                            camera_type=['CAM_FRONT', 'CAM_BACK', 'CAM_FRONT_LEFT', 'CAM_FRONT_RIGHT', 'CAM_BACK_RIGHT',
+                                         'CAM_BACK_LEFT']) -> (str, str, Box):
     """
     Select annotations that is a camera image defined by box_vis_level
 
@@ -928,7 +934,8 @@ def select_annotation_boxes(sample_token, lyftd: LyftDataset, box_vis_level: Box
 
 
 def select_2d_annotation_boxes(ldf: LyftDataset, classifier, sample_token,
-                               camera_type=['CAM_FRONT', 'CAM_BACK','CAM_FRONT_LEFT','CAM_FRONT_RIGHT','CAM_BACK_RIGHT','CAM_BACK_LEFT']) -> (str, str, np.ndarray):
+                               camera_type=['CAM_FRONT', 'CAM_BACK', 'CAM_FRONT_LEFT', 'CAM_FRONT_RIGHT',
+                                            'CAM_BACK_RIGHT', 'CAM_BACK_LEFT']) -> (str, str, np.ndarray):
     sample_record = ldf.get('sample', sample_token)
 
     cams = [key for key in sample_record["data"].keys() if "CAM" in key]
