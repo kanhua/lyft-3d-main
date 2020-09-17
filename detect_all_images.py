@@ -1,11 +1,13 @@
 import os
 import pickle
-from config_tool import get_paths
+
+from absl import app, flags, logging
 from tqdm import tqdm
-from absl import app, flags,logging
+
+from config_tool import get_paths
+from object_classifier import FastClassifer
 from prepare_lyft_data_v2 import load_train_data, get_all_image_paths_in_single_scene
 from test_data_loader import load_test_data
-from object_classifier import FastClassifer
 
 flags.DEFINE_list("scenes", "", "scenes to be processed")
 flags.DEFINE_string("data_type", "train", "file type")
